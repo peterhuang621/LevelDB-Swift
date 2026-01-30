@@ -53,7 +53,7 @@ public class Cache {
     }
 }
 
-final class LRUHandle {
+public class LRUHandle {
     // MARK: - Public functions
 
     var value: UnsafeMutableRawPointer?
@@ -73,7 +73,7 @@ final class LRUHandle {
     // MARK: - Public functions
 
     // Hard to use self-cycle sentinel in Swift-class, so use a createSentinel instead.
-    static public func createSentinel() -> LRUHandle {
+    public static func createSentinel() -> LRUHandle {
         let sentinel = LRUHandle()
         sentinel.next = sentinel
         sentinel.prev = sentinel
@@ -87,7 +87,7 @@ final class LRUHandle {
     }
 }
 
-class HandleTable {
+public class HandleTable {
     // MARK: - Private properties
 
     private var length_: UInt32 = 0
@@ -177,8 +177,63 @@ class HandleTable {
     }
 }
 
-
 // A single shard of sharded cache.
-class LRUCache {
+public class LRUCache {
+    private var capacity_: size_t = 0
+    private var usage_: size_t = 0
+    private var lru_: LRUHandle
+    private var in_use_: LRUHandle
+    private var table_: HandleTable
+    private var mutex_: Mutex
 
+    init() {
+        lru_=LRUHandle.createSentinel()
+    }
+
+    private func LRU_Remove(_ e: LRUHandle) {
+        e.next!.prev = e.prev
+        e.prev!.next = e.next
+    }
+
+    private func LRU_Append(_ list: LRUHandle, _ e: LRUHandle) {
+        e.next = list
+        e.prev = list.prev
+        e.prev!.next = e
+        e.next!.prev = e
+    }
+
+    private func Ref(_ e: LRUHandle) {
+        if e.refs == 1 && e.in_cache {
+            LRU_Remove(e)
+            LRU_Append(in_use_, e)
+        }
+        e.refs += 1
+    }
+
+    private func Unref(_ e: LRUHandle) {
+        precondition(
+            e.refs > 0,
+            "LRUHandle refs is less and equal than 0, as e.refs = \(e.refs)"
+        )
+        e.refs -= 1
+        if e.refs == 0 {
+            precondition(!e.in_cache, "LRUHandle is in cache!")
+            e.deleter!(e.key(), e.value)
+
+        } else if e.in_cache && e.refs == 1 {
+            LRU_Remove(e)
+            LRU_Append(lru_, e)
+        }
+    }
+
+    private func FinishErase(_ e: LRUHandle?) -> Bool {
+        if e != nil {
+            precondition(e!.in_cache, "LRUHandle is in cache!")
+            LRU_Remove(e!)
+            e!.in_cache = false
+            usage_ -= e!.charge
+            Unref(e!)
+        }
+        return e != nil
+    }
 }

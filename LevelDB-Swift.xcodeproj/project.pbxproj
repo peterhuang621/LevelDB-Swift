@@ -33,6 +33,11 @@
 			path = leveldb;
 			sourceTree = "<group>";
 		};
+		E0CD04E22F2D028D00F78B91 /* util */ = {
+			isa = PBXFileSystemSynchronizedRootGroup;
+			path = util;
+			sourceTree = "<group>";
+		};
 /* End PBXFileSystemSynchronizedRootGroup section */
 
 /* Begin PBXFrameworksBuildPhase section */
@@ -51,6 +56,7 @@
 			children = (
 				E0B043E92EF07784002E4914 /* leveldb */,
 				E0B043E22EF07549002E4914 /* main.swift */,
+				E0CD04E22F2D028D00F78B91 /* util */,
 				E0B043E02EF07549002E4914 /* Products */,
 			);
 			sourceTree = "<group>";
@@ -80,6 +86,7 @@
 			);
 			fileSystemSynchronizedGroups = (
 				E0B043E92EF07784002E4914 /* leveldb */,
+				E0CD04E22F2D028D00F78B91 /* util */,
 			);
 			name = "LevelDB-Swift";
 			packageProductDependencies = (
