@@ -59,9 +59,9 @@ public class LRUHandle {
     var value: UnsafeMutableRawPointer?
     var deleter: ((Slice, UnsafeMutableRawPointer?) -> Void)?
 
-    var next_hash: LRUHandle?
-    var next: LRUHandle?
-    var prev: LRUHandle?
+    var next_hash: UnsafeMutablePointer<LRUHandle>?
+    var next: UnsafeMutablePointer<LRUHandle>?
+    var prev: UnsafeMutablePointer<LRUHandle>?
 
     var charge: size_t = 0
     var key_length: size_t = 0
@@ -72,17 +72,10 @@ public class LRUHandle {
 
     // MARK: - Public functions
 
-    // Hard to use self-cycle sentinel in Swift-class, so use a createSentinel instead.
-    public static func createSentinel() -> LRUHandle {
-        let sentinel = LRUHandle()
-        sentinel.next = sentinel
-        sentinel.prev = sentinel
-        return sentinel
-    }
-
     // Next is only equal to this if the LRU handle is the list head of an empty list. List heads never have meaningful keys.
     public func key() -> Slice {
-        precondition(next !== self, "This is list head, no key provided")
+        precondition(next != nil, "This is list head, no key provided")
+        precondition(key_length <= key_data.count, "Invalid key length")
         return Slice(key_data, key_length)
     }
 }
@@ -92,38 +85,42 @@ public class HandleTable {
 
     private var length_: UInt32 = 0
     private var elems_: UInt32 = 0
-    private var list_: [LRUHandle?] = []
+    private var list_: UnsafeMutablePointer<UnsafeMutablePointer<LRUHandle>?>?
 
-    // As Swift lacks simple implementation of 2nd-level pointer, we use a tuple to get the previous node.
-    private func FindPointer(_ key: Slice, _ hash: UInt32) -> (LRUHandle?, LRUHandle?) {
-        var ptr = list_[Int(hash & (length_ - 1))]
-        var prev: LRUHandle?
-        while ptr != nil && (ptr!.hash != hash || key != ptr!.key()) {
-            prev = ptr
-            ptr = ptr!.next_hash
+    private func FindPointer(_ key: Slice, _ hash: UInt32) -> UnsafeMutablePointer<UnsafeMutablePointer<LRUHandle>?> {
+        let index = Int(hash & (length_ - 1))
+        var ptr = list_!.advanced(by: index)
+        while let p = ptr.pointee {
+            if p.pointee.hash != hash || key != p.pointee.key() {
+                ptr = withUnsafeMutablePointer(to: &p.pointee.next_hash) { $0 }
+            }
         }
-        return (prev, ptr)
+        return ptr
     }
 
     private func Resize() {
         var new_length: UInt32 = 4
         while new_length < elems_ {
-            new_length *= 2
+            new_length <<= 1
         }
-        let new_list: [LRUHandle?] = list_
+        let new_list = UnsafeMutablePointer<UnsafeMutablePointer<LRUHandle>?>.allocate(
+            capacity: Int(new_length)
+        )
         var count: UInt32 = 0
         for i in 0 ..< Int(length_) {
-            var h: LRUHandle? = list_[i]
+            var h = list_![i]
             while h != nil {
-                let next: LRUHandle? = h!.next_hash
-                let hash: UInt32 = h!.hash
-                var ptr: LRUHandle? = new_list[Int(hash & (length_ - 1))]
-                h!.next_hash = ptr
-                ptr = h
+                let next = h!.pointee.next_hash
+                let hash = h!.pointee.hash
+                let idx = Int(hash & (length_ - 1))
+                h!.pointee.next_hash = new_list[idx]
+                new_list[idx] = h
                 h = next
                 count += 1
             }
         }
+        list_!.deallocate()
+
         precondition(
             elems_ == count,
             "elems_ (\(elems_)) is not equal to count (\(count))"
@@ -135,23 +132,24 @@ public class HandleTable {
     // MARK: - Public functions and initializers
 
     init() {
+        list_ = nil
         Resize()
     }
 
-    public func Lookup(_ key: Slice, _ hash: UInt32) -> LRUHandle? {
-        return FindPointer(key, hash).1
+    deinit {
+        list_?.deallocate()
     }
 
-    public func Insert(_ h: LRUHandle) -> LRUHandle? {
-        let (prev, ptr) = FindPointer(h.key(), h.hash)
-        let old = ptr
-        h.next_hash = old?.next_hash
+    public func Lookup(_ key: Slice, _ hash: UInt32) -> UnsafeMutablePointer<LRUHandle>? {
+        return FindPointer(key, hash).pointee
+    }
 
-        if prev == nil {
-            list_[Int(h.hash & (length_ - 1))] = h
-        } else {
-            prev!.next_hash = h
-        }
+    public func Insert(_ h: UnsafeMutablePointer<LRUHandle>) -> UnsafeMutablePointer<LRUHandle>? {
+        let ptr = FindPointer(h.pointee.key(), h.pointee.hash)
+        let old = ptr.pointee
+
+        h.pointee.next_hash = old?.pointee.next_hash
+        ptr.pointee = h
 
         if old == nil {
             elems_ += 1
@@ -163,14 +161,11 @@ public class HandleTable {
         return old
     }
 
-    public func Remove(_ key: Slice, _ hash: UInt32) -> LRUHandle? {
-        let (prev, result) = FindPointer(key, hash)
+    public func Remove(_ key: Slice, _ hash: UInt32) -> UnsafeMutablePointer<LRUHandle>? {
+        let ptr = FindPointer(key, hash)
+        let result = ptr.pointee
         if result != nil {
-            if prev == nil {
-                list_[Int(hash & (length_ - 1))] = result!.next_hash
-            } else {
-                prev!.next_hash = result!.next_hash
-            }
+            ptr.pointee = result?.pointee.next_hash
             elems_ -= 1
         }
         return result
@@ -179,60 +174,78 @@ public class HandleTable {
 
 // A single shard of sharded cache.
 public class LRUCache {
-    private var capacity_: size_t = 0
-    private var usage_: size_t = 0
-    private var lru_: LRUHandle
-    private var in_use_: LRUHandle
+    private var capacity_: size_t
+    private var usage_: size_t
+    private var lru_: UnsafeMutablePointer<LRUHandle>
+    private var in_use_: UnsafeMutablePointer<LRUHandle>
     private var table_: HandleTable
-    private var mutex_: Mutex
+    private let mutex_: Mutex
 
     init() {
-        lru_=LRUHandle.createSentinel()
+        capacity_ = 0
+        usage_ = 0
+        table_ = HandleTable()
+        mutex_ = Mutex()
+
+        lru_ = UnsafeMutablePointer<LRUHandle>.allocate(capacity: 1)
+        lru_.initialize(to: LRUHandle())
+        in_use_ = UnsafeMutablePointer<LRUHandle>.allocate(capacity: 1)
+        in_use_.initialize(to: LRUHandle())
+
+        lru_.pointee.next = lru_
+        lru_.pointee.prev = lru_
+
+        in_use_.pointee.next = in_use_
+        in_use_.pointee.prev = in_use_
     }
 
-    private func LRU_Remove(_ e: LRUHandle) {
-        e.next!.prev = e.prev
-        e.prev!.next = e.next
+    deinit {
+        lru_.deallocate()
+        in_use_.deallocate()
     }
 
-    private func LRU_Append(_ list: LRUHandle, _ e: LRUHandle) {
-        e.next = list
-        e.prev = list.prev
-        e.prev!.next = e
-        e.next!.prev = e
+    private func LRU_Remove(_ e: UnsafeMutablePointer<LRUHandle>) {
+        e.pointee.next!.pointee.prev = e.pointee.prev
+        e.pointee.prev!.pointee.next = e.pointee.next
     }
 
-    private func Ref(_ e: LRUHandle) {
-        if e.refs == 1 && e.in_cache {
+    private func LRU_Append(_ list: UnsafeMutablePointer<LRUHandle>, _ e: UnsafeMutablePointer<LRUHandle>) {
+        e.pointee.next = list
+        e.pointee.prev = list.pointee.prev
+        e.pointee.prev!.pointee.next = e
+        e.pointee.next!.pointee.prev = e
+    }
+
+    private func Ref(_ e: UnsafeMutablePointer<LRUHandle>) {
+        if e.pointee.refs == 1 && e.pointee.in_cache {
             LRU_Remove(e)
             LRU_Append(in_use_, e)
         }
-        e.refs += 1
+        e.pointee.refs += 1
     }
 
-    private func Unref(_ e: LRUHandle) {
+    private func Unref(_ e: UnsafeMutablePointer<LRUHandle>) {
         precondition(
-            e.refs > 0,
-            "LRUHandle refs is less and equal than 0, as e.refs = \(e.refs)"
+            e.pointee.refs > 0,
+            "LRUHandle refs is less and equal than 0, as e.refs = \(e.pointee.refs)"
         )
-        e.refs -= 1
-        if e.refs == 0 {
-            precondition(!e.in_cache, "LRUHandle is in cache!")
-            e.deleter!(e.key(), e.value)
-
-        } else if e.in_cache && e.refs == 1 {
+        e.pointee.refs -= 1
+        if e.pointee.refs == 0 {
+            precondition(!e.pointee.in_cache, "LRUHandle is in cache!")
+            e.pointee.deleter!(e.pointee.key(), e.pointee.value)
+        } else if e.pointee.in_cache && e.pointee.refs == 1 {
             LRU_Remove(e)
             LRU_Append(lru_, e)
         }
     }
 
-    private func FinishErase(_ e: LRUHandle?) -> Bool {
-        if e != nil {
-            precondition(e!.in_cache, "LRUHandle is in cache!")
-            LRU_Remove(e!)
-            e!.in_cache = false
-            usage_ -= e!.charge
-            Unref(e!)
+    private func FinishErase(_ e: UnsafeMutablePointer<LRUHandle>?) -> Bool {
+        if let ee = e {
+            precondition(ee.pointee.in_cache, "LRUHandle is in cache!")
+            LRU_Remove(ee)
+            ee.pointee.in_cache = false
+            usage_ -= ee.pointee.charge
+            Unref(ee)
         }
         return e != nil
     }
