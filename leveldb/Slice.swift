@@ -28,6 +28,14 @@ public struct Slice: Equatable, Comparable {
         data_ = Data(bytes: d, count: n)
     }
 
+    public init(_ d: Data, _ n: size_t) {
+        if d.count == n {
+            data_ = d
+        } else {
+            data_ = d.prefix(n)
+        }
+    }
+
     // MARK: - Properties
 
     public func data() -> Data {

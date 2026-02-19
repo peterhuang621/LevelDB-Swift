@@ -8,53 +8,30 @@
 import Foundation
 
 // Cache uses a least-recently-used eviction policy.
-public class Cache {
-    // Opaque struct Handle.
-    public struct Handle {}
+public protocol Cache: AnyObject {
+    // Opaque struct
+    typealias Handle = LRUHandle
 
-    // MARK: - Public functions and initializers
+    func Insert(key: Slice, value: UnsafeMutableRawPointer?, charge: Int,
+                deleter: ((Slice, UnsafeMutableRawPointer?) -> Void)?) -> Handle?
 
-    public init() {}
+    func Lookup(key: Slice) -> UnsafeMutablePointer<Handle>?
 
-    deinit {
-    }
+    func Release(handle: UnsafeMutablePointer<Handle>?)
 
-    public func Insert(key: Slice, value: UnsafeMutableRawPointer?, charge: size_t,
-                       deleter: @escaping (_ key: Slice, _ value: UnsafeMutableRawPointer?) -> Void) -> Handle {
-        fatalError("Must override")
-    }
+    func Value(handle: UnsafeMutablePointer<Handle>?) -> UnsafeMutableRawPointer?
 
-    public func lookup(key: Slice) -> Handle? {
-        fatalError("Must override")
-    }
+    func Erase(key: Slice)
 
-    public func release(_ handle: Handle) {
-        fatalError("Must override")
-    }
+    func NewId() -> UInt64
 
-    public func value(of handle: Handle) -> UnsafeMutableRawPointer? {
-        fatalError("Must override")
-    }
+    func Prune()
 
-    public func erase(key: Slice) {
-        fatalError("Must override")
-    }
-
-    public func newId() -> UInt64 {
-        fatalError("Must override")
-    }
-
-    public func prune() {
-        // default empty
-    }
-
-    public func totalCharge() -> size_t {
-        fatalError("Must override")
-    }
+    func TotalCharge() -> Int
 }
 
 public class LRUHandle {
-    // MARK: - Public functions
+    // MARK: - Public properties and functions
 
     var value: UnsafeMutableRawPointer?
     var deleter: ((Slice, UnsafeMutableRawPointer?) -> Void)?
@@ -68,9 +45,7 @@ public class LRUHandle {
     var in_cache: Bool = false
     var refs: UInt32 = 0
     var hash: UInt32 = 0
-    var key_data: [UInt8] = [0]
-
-    // MARK: - Public functions
+    var key_data: Data = Data()
 
     // Next is only equal to this if the LRU handle is the list head of an empty list. List heads never have meaningful keys.
     public func key() -> Slice {
@@ -81,7 +56,7 @@ public class LRUHandle {
 }
 
 public class HandleTable {
-    // MARK: - Private properties
+    // MARK: - Private properties and functions
 
     private var length_: UInt32 = 0
     private var elems_: UInt32 = 0
@@ -174,35 +149,14 @@ public class HandleTable {
 
 // A single shard of sharded cache.
 public class LRUCache {
+    // MARK: - Private properties and functions
+
     private var capacity_: size_t
     private var usage_: size_t
     private var lru_: UnsafeMutablePointer<LRUHandle>
     private var in_use_: UnsafeMutablePointer<LRUHandle>
     private var table_: HandleTable
     private let mutex_: Mutex
-
-    init() {
-        capacity_ = 0
-        usage_ = 0
-        table_ = HandleTable()
-        mutex_ = Mutex()
-
-        lru_ = UnsafeMutablePointer<LRUHandle>.allocate(capacity: 1)
-        lru_.initialize(to: LRUHandle())
-        in_use_ = UnsafeMutablePointer<LRUHandle>.allocate(capacity: 1)
-        in_use_.initialize(to: LRUHandle())
-
-        lru_.pointee.next = lru_
-        lru_.pointee.prev = lru_
-
-        in_use_.pointee.next = in_use_
-        in_use_.pointee.prev = in_use_
-    }
-
-    deinit {
-        lru_.deallocate()
-        in_use_.deallocate()
-    }
 
     private func LRU_Remove(_ e: UnsafeMutablePointer<LRUHandle>) {
         e.pointee.next!.pointee.prev = e.pointee.prev
@@ -249,4 +203,121 @@ public class LRUCache {
         }
         return e != nil
     }
+
+    // MARK: - Public functions and initializers
+
+    init() {
+        capacity_ = 0
+        usage_ = 0
+        table_ = HandleTable()
+        mutex_ = Mutex()
+
+        lru_ = UnsafeMutablePointer<LRUHandle>.allocate(capacity: 1)
+        lru_.initialize(to: LRUHandle())
+        in_use_ = UnsafeMutablePointer<LRUHandle>.allocate(capacity: 1)
+        in_use_.initialize(to: LRUHandle())
+
+        lru_.pointee.next = lru_
+        lru_.pointee.prev = lru_
+
+        in_use_.pointee.next = in_use_
+        in_use_.pointee.prev = in_use_
+    }
+
+    deinit {
+        lru_.deallocate()
+        in_use_.deallocate()
+    }
+
+    public func SetCapacity(_ capacity: size_t) { capacity_ = capacity }
+
+    public func Insert(
+        _ key: Slice,
+        _ hash: UInt32,
+        _ value: UnsafeMutableRawPointer?,
+        _ charge: size_t,
+        _ deleter: ((Slice, UnsafeMutableRawPointer?) -> Void)?
+    ) -> UnsafeMutablePointer<Cache.Handle>? {
+        _ = MutexLock(mu: mutex_)
+
+        var e = UnsafeMutablePointer<LRUHandle>.allocate(capacity: 1)
+
+        e.pointee.value = value
+        e.pointee.deleter = deleter
+        e.pointee.charge = charge
+        e.pointee.key_length = key.size()
+        e.pointee.hash = hash
+        e.pointee.in_cache = false
+        e.pointee.refs = 1
+        e.pointee.key_data = key.data()
+
+        if capacity_ > 0 {
+            e.pointee.refs += 1
+            e.pointee.in_cache = true
+            LRU_Append(in_use_, e)
+            usage_ += charge
+            let _ = FinishErase(table_.Insert(e))
+        } else {
+            e.pointee.next = nil
+        }
+
+        while usage_ > capacity_ && lru_.pointee.next != lru_ {
+            guard let old = lru_.pointee.next else { break }
+            precondition(
+                old.pointee.refs == 1,
+                "old element's refs (\(old.pointee.refs) must be 1"
+            )
+            let erased = FinishErase(
+                table_.Remove(old.pointee.key(), old.pointee.hash)
+            )
+            precondition(!erased, "fail to remove old element in table")
+        }
+
+        return UnsafeMutableRawPointer(e)
+            .assumingMemoryBound(to: Cache.Handle.self)
+    }
+
+    public func Lookup(_ key: Slice, _ hash: UInt32) -> UnsafeMutablePointer<Cache.Handle>? {
+        _ = MutexLock(mu: mutex_)
+        let e = table_.Lookup(key, hash)
+        if e != nil {
+            Ref(e!)
+        }
+        return UnsafeMutableRawPointer(e)?.assumingMemoryBound(to: Cache.Handle.self)
+    }
+
+    public func Release(_ handle: UnsafeMutablePointer<Cache.Handle>) {
+        _ = MutexLock(mu: mutex_)
+        Unref(UnsafeMutableRawPointer(handle).assumingMemoryBound(to: LRUHandle.self))
+    }
+
+    public func Erase(_ key: Slice, _ hash: UInt32) {
+        _ = MutexLock(mu: mutex_)
+        _ = FinishErase(table_.Remove(key, hash))
+    }
+
+    public func Prune() {
+        _ = MutexLock(mu: mutex_)
+        while lru_.pointee.next != lru_ {
+            guard let e = lru_.pointee.next else {
+                break
+            }
+            precondition(e.pointee.refs == 1, "element e (\(e.pointee.refs)) must be 1")
+            let erased = FinishErase(
+                table_.Remove(e.pointee.key(), e.pointee.hash)
+            )
+            precondition(!erased, "fail to remove old element in table")
+        }
+    }
+
+    public func TotalCharge() -> size_t {
+        _ = MutexLock(mu: mutex_)
+        return usage_
+    }
+}
+
+fileprivate let kNumShardBits = 4
+fileprivate let kNumShards = (1 << kNumShardBits)
+
+public class ShardedLRUCache {
 }
