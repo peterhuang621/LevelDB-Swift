@@ -319,5 +319,86 @@ public class LRUCache {
 fileprivate let kNumShardBits = 4
 fileprivate let kNumShards = (1 << kNumShardBits)
 
-public class ShardedLRUCache {
+public class ShardedLRUCache: Cache {
+    // MARK: - Private properties and functions
+
+    private var shard_: [LRUCache] = Array(
+        repeating: LRUCache(),
+        count: kNumShards
+    )
+    private let id_mutex_ = Mutex()
+    private var last_id_: UInt64
+
+    private static func HashSlice(_ s: Slice) -> UInt32 {
+        return Hash(s.data(), 0)
+    }
+
+    private static func Shard(_ hash: UInt32) -> Int {
+        return Int(hash >> (32 - kNumShardBits))
+    }
+
+    // MARK: - Public functions and initializers
+
+    init(_ capacity: size_t) {
+        self.last_id_ = 0
+        let per_shard = (capacity + (kNumShards - 1)) / kNumShards
+        for s in 0 ..< kNumShards {
+            shard_[s].SetCapacity(per_shard)
+        }
+    }
+
+    public func Insert(key: Slice, value: UnsafeMutableRawPointer?, charge: Int, deleter: ((Slice, UnsafeMutableRawPointer?) -> Void)?) -> Cache.Handle? {
+        let hash = ShardedLRUCache.HashSlice(key)
+        return shard_[ShardedLRUCache.Shard(hash)]
+            .Insert(key, hash, value, charge, deleter)?.pointee
+    }
+
+    public func Lookup(key: Slice) -> UnsafeMutablePointer<Cache.Handle>? {
+        let hash=ShardedLRUCache.HashSlice(key)
+        return shard_[ShardedLRUCache.Shard(hash)].Lookup(key, hash)
+    }
+
+    public func Release(handle: UnsafeMutablePointer<Handle>?) {
+        guard let h = handle?.pointee as? LRUHandle else {
+            fatalError("handle fails to be reinterpreted")
+        }
+        shard_[ShardedLRUCache.Shard(h.hash)].Release(handle!)
+    }
+
+    public func Value(handle: UnsafeMutablePointer<Handle>?) -> UnsafeMutableRawPointer? {
+        guard let h = handle?.pointee as? LRUHandle else {
+            fatalError("handle fails to be reinterpreted")
+        }
+        return h.value
+    }
+
+    public func Erase(key: Slice) {
+        let hash=ShardedLRUCache.HashSlice(key)
+        shard_[ShardedLRUCache.Shard(hash)].Erase(key, hash)
+    }
+
+    public func NewId() -> UInt64 {
+        let _=MutexLock(mu: id_mutex_)
+        last_id_ += 1
+        return last_id_
+    }
+
+    public func Prune() {
+        for s in 0..<kNumShards{
+            shard_[s].Prune()
+        }
+    }
+
+    public func TotalCharge() -> Int {
+        var total:size_t=0
+        for s in 0..<kNumShards{
+            total += shard_[s].TotalCharge()
+        }
+        return total
+    }
+}
+
+
+public func NewLRUCache(_ capacity:size_t) -> ShardedLRUCache  {
+    return ShardedLRUCache(capacity)
 }
