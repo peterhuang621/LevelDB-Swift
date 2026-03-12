@@ -28,6 +28,10 @@ public struct Slice: Equatable, Comparable {
         data_ = Data(bytes: d, count: n)
     }
 
+    public init(_ d: [UInt8]) {
+        data_ = Data(bytes: d, count: d.count)
+    }
+
     public init(_ d: Data, _ n: size_t) {
         if d.count == n {
             data_ = d
@@ -83,20 +87,18 @@ public struct Slice: Equatable, Comparable {
         return (size() >= x.size()) && (data_.prefix(x.size()) == x.data_)
     }
 
-    public func compare(_ b: Slice) -> Int {
-        let minLen = min(size(), b.size())
-        let cmp = data_.prefix(minLen).elementsEqual(b.data_.prefix(minLen)) ? 0 : data_.prefix(minLen).lexicographicallyPrecedes(b.data_.prefix(minLen)) ? -1 : 1
-        if cmp == 0 && size() != b.size() { return -1 }
-        return 0
-    }
-
     // MARK: - Equatable & Comparable
+
+    public func compare(_ b: Slice) -> Int {
+        if data_ == b.data_ { return 0 }
+        return data_.lexicographicallyPrecedes(b.data_) ? -1 : 1
+    }
 
     public static func == (lhs: Self, rhs: Self) -> Bool {
         return lhs.data_ == rhs.data_
     }
 
     public static func < (lhs: Slice, rhs: Slice) -> Bool {
-        return lhs.compare(rhs) < 0
+        return lhs.data_.lexicographicallyPrecedes(rhs.data_)
     }
 }

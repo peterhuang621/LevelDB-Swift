@@ -340,7 +340,7 @@ public class ShardedLRUCache: Cache {
     // MARK: - Public functions and initializers
 
     init(_ capacity: size_t) {
-        self.last_id_ = 0
+        last_id_ = 0
         let per_shard = (capacity + (kNumShards - 1)) / kNumShards
         for s in 0 ..< kNumShards {
             shard_[s].SetCapacity(per_shard)
@@ -354,7 +354,7 @@ public class ShardedLRUCache: Cache {
     }
 
     public func Lookup(key: Slice) -> UnsafeMutablePointer<Cache.Handle>? {
-        let hash=ShardedLRUCache.HashSlice(key)
+        let hash = ShardedLRUCache.HashSlice(key)
         return shard_[ShardedLRUCache.Shard(hash)].Lookup(key, hash)
     }
 
@@ -373,32 +373,31 @@ public class ShardedLRUCache: Cache {
     }
 
     public func Erase(key: Slice) {
-        let hash=ShardedLRUCache.HashSlice(key)
+        let hash = ShardedLRUCache.HashSlice(key)
         shard_[ShardedLRUCache.Shard(hash)].Erase(key, hash)
     }
 
     public func NewId() -> UInt64 {
-        let _=MutexLock(mu: id_mutex_)
+        let _ = MutexLock(mu: id_mutex_)
         last_id_ += 1
         return last_id_
     }
 
     public func Prune() {
-        for s in 0..<kNumShards{
+        for s in 0 ..< kNumShards {
             shard_[s].Prune()
         }
     }
 
     public func TotalCharge() -> Int {
-        var total:size_t=0
-        for s in 0..<kNumShards{
+        var total: size_t = 0
+        for s in 0 ..< kNumShards {
             total += shard_[s].TotalCharge()
         }
         return total
     }
 }
 
-
-public func NewLRUCache(_ capacity:size_t) -> ShardedLRUCache  {
+public func NewLRUCache(_ capacity: size_t) -> ShardedLRUCache {
     return ShardedLRUCache(capacity)
 }
