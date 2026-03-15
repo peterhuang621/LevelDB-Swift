@@ -112,7 +112,7 @@ public struct Status {
         return state
     }
 
-    private func ToString() -> String {
+    public func ToString() -> String {
         guard let state_ else { return "OK" }
         let type: String
         switch code() {

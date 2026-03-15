@@ -28,6 +28,11 @@
 /* End PBXFileReference section */
 
 /* Begin PBXFileSystemSynchronizedRootGroup section */
+		E02F44972F66FF58003B9FD3 /* db */ = {
+			isa = PBXFileSystemSynchronizedRootGroup;
+			path = db;
+			sourceTree = "<group>";
+		};
 		E0B043E92EF07784002E4914 /* leveldb */ = {
 			isa = PBXFileSystemSynchronizedRootGroup;
 			path = leveldb;
@@ -56,6 +61,7 @@
 			children = (
 				E0B043E92EF07784002E4914 /* leveldb */,
 				E0B043E22EF07549002E4914 /* main.swift */,
+				E02F44972F66FF58003B9FD3 /* db */,
 				E0CD04E22F2D028D00F78B91 /* util */,
 				E0B043E02EF07549002E4914 /* Products */,
 			);
@@ -85,6 +91,7 @@
 			dependencies = (
 			);
 			fileSystemSynchronizedGroups = (
+				E02F44972F66FF58003B9FD3 /* db */,
 				E0B043E92EF07784002E4914 /* leveldb */,
 				E0CD04E22F2D028D00F78B91 /* util */,
 			);

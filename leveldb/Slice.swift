@@ -74,17 +74,22 @@ public struct Slice: Equatable, Comparable {
         data_ = Data()
     }
 
-    public mutating func removePrefix(_ n: Int) {
+    public mutating func remove_prefix(_ n: Int) {
         precondition(n <= size(), "Index \(n) out of bounds \(size())")
         data_.removeFirst(n)
     }
 
-    public func toString() -> String {
+    public func ToString() -> String {
         return String(data: data_, encoding: .utf8) ?? ""
     }
 
     public func starts_with(_ x: Slice) -> Bool {
         return (size() >= x.size()) && (data_.prefix(x.size()) == x.data_)
+    }
+
+    public func starts_with(_ str: String) -> Bool {
+        let utf8Data = Data(str.utf8)
+        return (size() >= utf8Data.count) && (data_.prefix(utf8Data.count) == utf8Data)
     }
 
     // MARK: - Equatable & Comparable
@@ -98,7 +103,31 @@ public struct Slice: Equatable, Comparable {
         return lhs.data_ == rhs.data_
     }
 
-    public static func < (lhs: Slice, rhs: Slice) -> Bool {
+    public static func == (lhs: Self, rhs: String) -> Bool {
+        return lhs.data_ == Data(rhs.utf8)
+    }
+
+    public static func < (lhs: Self, rhs: Self) -> Bool {
         return lhs.data_.lexicographicallyPrecedes(rhs.data_)
+    }
+
+    public static func + (lhs: Self, rhs: Self) -> Self {
+        var combined = lhs
+        combined.data_.append(rhs.data_)
+        return combined
+    }
+
+    public static func += (lhs: inout Self, rhs: Self) {
+        lhs.data_.append(rhs.data_)
+    }
+
+    public static func + (lhs: Self, rhs: String) -> Self {
+        var combined = lhs
+        combined.data_.append(contentsOf: rhs.utf8)
+        return combined
+    }
+
+    public static func += (lhs: inout Self, rhs: String) {
+        lhs.data_.append(contentsOf: rhs.utf8)
     }
 }

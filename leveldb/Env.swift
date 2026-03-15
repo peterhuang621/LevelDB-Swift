@@ -58,6 +58,10 @@ public class Env {
         fatalError("must be override")
     }
 
+    public func GetFileSize(_ fname: String, _ file_size: inout UInt64) -> Status {
+        fatalError("must be override")
+    }
+
     public func RenameFile(_ src: String, _ target: String) -> Status {
         fatalError("must be override")
     }
@@ -141,7 +145,7 @@ public func ReadFileToString(_ env: Env, _ fname: String, _ data: inout String) 
         if !s.ok() {
             break
         }
-        data.append(fragment.toString())
+        data.append(fragment.ToString())
         if fragment.empty() {
             break
         }
@@ -173,13 +177,18 @@ public protocol SequentialFile {
 
 public protocol WritableFile {
     func Append(_ data: Slice) -> Status
+    func Append(_ str: String) -> Status
     func Close() -> Status
     func Flush() -> Status
     func Sync() -> Status
 }
 
 public class EnvWrapper: Env {
+    // MARK: - Private property
+
     private var target_: Env
+
+    // MARK: - Public functions and initializers
 
     public init(target_: Env) {
         self.target_ = target_
@@ -187,5 +196,81 @@ public class EnvWrapper: Env {
 
     public func target() -> Env {
         return target_
+    }
+
+    override public func NewSequentialFile(_ f: String, _ r: inout SequentialFile?) -> Status {
+        return target_.NewSequentialFile(f, &r)
+    }
+
+    override public func NewRandomAccessFile(_ f: String, _ r: inout RandomAccessFile?) -> Status {
+        return target_.NewRandomAccessFile(f, &r)
+    }
+
+    override public func NewWritableFile(_ f: String, _ r: inout (any WritableFile)?) -> Status {
+        return target_.NewWritableFile(f, &r)
+    }
+
+    override public func NewAppendableFile(_ f: String, _ r: inout (any WritableFile)?) -> Status {
+        return target_.NewAppendableFile(f, &r)
+    }
+
+    override public func FileExists(_ f: String) -> Bool {
+        return target_.FileExists(f)
+    }
+
+    override public func GetChildren(_ dir: String, _ result: [String]) -> Status {
+        return target_.GetChildren(dir, result)
+    }
+
+    override public func RemoveFile(_ fname: String) -> Status {
+        return target_.RemoveFile(fname)
+    }
+
+    override public func CreateDir(_ dirname: String) -> Status {
+        return target_.CreateDir(dirname)
+    }
+
+    override public func RemoveDir(_ dirname: String) -> Status {
+        return target_.RemoveDir(dirname)
+    }
+
+    override public func GetFileSize(_ fname: String, _ file_size: inout UInt64) -> Status {
+        return target_.GetFileSize(fname, &file_size)
+    }
+
+    override public func RenameFile(_ src: String, _ target: String) -> Status {
+        return target_.RenameFile(src, target)
+    }
+
+    override public func LockFile(_ fname: String, _ lock: inout (any FileLock)?) -> Status {
+        return target_.LockFile(fname, &lock)
+    }
+
+    override public func UnlockFile(_ lock: inout (any FileLock)?) -> Status {
+        return target_.UnlockFile(&lock)
+    }
+
+    override public func Schedule(_ function: (UnsafeMutableRawPointer) -> Void, _ arg: UnsafeMutableRawPointer) -> Status {
+        return target_.Schedule(function, arg)
+    }
+
+    override public func StartThread(_ function: (UnsafeMutableRawPointer) -> Void, _ arg: UnsafeMutableRawPointer) -> Status {
+        return target_.StartThread(function, arg)
+    }
+
+    override public func GetTestDirectory(_ path: inout String) -> Status {
+        return target_.GetTestDirectory(&path)
+    }
+
+    override public func NewLogger(_ fname: String, _ result: inout (any Logger)?) -> Status {
+        return target_.NewLogger(fname, &result)
+    }
+
+    override public func NowMicros() -> UInt64 {
+        return target_.NowMicros()
+    }
+
+    override public func SleepForMicroseconds(_ micros: Int) {
+        return target_.SleepForMicroseconds(micros)
     }
 }
