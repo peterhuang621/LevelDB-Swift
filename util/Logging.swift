@@ -52,7 +52,7 @@ func ConsumeDecimalNumber(_ input: inout Slice, _ val: inout UInt64) -> Bool {
         digits_consumed += 1
     }
 
-    input.removePrefix(digits_consumed)
+    input.remove_prefix(digits_consumed)
     val = value
     return digits_consumed != 0
 }

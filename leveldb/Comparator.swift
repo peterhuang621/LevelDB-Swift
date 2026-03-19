@@ -7,8 +7,10 @@
 
 import Foundation
 
-protocol Comparator {
+public protocol Comparator {
     func Compare(_ a: Slice, _ b: Slice) -> Int
+
+    func Compare(aStr: String, bStr: String) -> Int
 
     func Name() -> String
 
@@ -22,6 +24,10 @@ public final class BytewiseComparatorImpl: Comparator, Sendable {
 
     public func Compare(_ a: Slice, _ b: Slice) -> Int {
         return a.compare(b)
+    }
+
+    public func Compare(aStr: String, bStr: String) -> Int {
+        return aStr.lexicographicallyPrecedes(bStr) ? -1 : 1
     }
 
     public func Name() -> String {
