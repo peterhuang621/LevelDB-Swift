@@ -29,16 +29,13 @@ public struct ParsedInternalKey {
     var sequence: SequenceNumber
     var type: ValueType
 
-    init() {
+    init(u: Slice, seq: SequenceNumber, t: ValueType) {
+        user_key = u
+        sequence = seq
+        type = t
     }
 
-    init(user_key: Slice, sequence: SequenceNumber, type: ValueType) {
-        self.user_key = user_key
-        self.sequence = sequence
-        self.type = type
-    }
-
-    func DebugString() -> String {
+    public func DebugString() -> String {
     }
 }
 
@@ -47,9 +44,6 @@ public func InternalKeyEncodingLength(_ key: ParsedInternalKey) -> size_t {
 }
 
 public func AppendInternalKey(_ result: inout String, _ key: ParsedInternalKey) {
-}
-
-public func ParseInternalKey(_ internal_key: Slice, _ result: inout ParsedInternalKey) -> Bool {
 }
 
 public func ExtractUserKey(_ internal_key: Slice) -> Slice {
@@ -117,6 +111,12 @@ public class InternalKeyComparator: Comparator {
 }
 
 public class InternalFilterPolicy: FilterPolicy {
+    private let user_policy_: FilterPolicy?
+
+    init(user_policy_: FilterPolicy?) {
+        self.user_policy_ = user_policy_
+    }
+
     public func Name() -> [UInt8] {
         <#code#>
     }
@@ -128,21 +128,59 @@ public class InternalFilterPolicy: FilterPolicy {
     public func KeyMayMatch(_ key: Slice, _ filter: Slice) -> Bool {
         <#code#>
     }
-
-    private let user_policy_: FilterPolicy?
-
-    init(user_policy_: FilterPolicy?) {
-        self.user_policy_ = user_policy_
-    }
 }
 
 public class InternalKey {
     private var rep_: String = ""
 
+    init(_ user_key: Slice, _ s: SequenceNumber, _ t: ValueType) {
+        AppendInternalKey(&rep_, ParsedInternalKey(u: user_key, seq: s, t: t))
+    }
+
+    public func DecodeFrom(_ s: Slice) -> Bool {
+        rep_ = s.ToString()
+        return !rep_.isEmpty
+    }
+
     public func Encode() -> Slice {
         precondition(!rep_.isEmpty, "rep_ should be empty")
         return Slice(rep_)
     }
+
+    public func user_key() -> Slice {
+        return Slice(ExtractUserKey(str: rep_))
+    }
+
+    public func SetFrom(_ p: ParsedInternalKey) {
+        rep_.removeAll()
+        AppendInternalKey(&rep_, p)
+    }
+
+    public func clear() {
+        rep_.removeAll()
+    }
+
+    public func DebugString() {
+    }
+}
+
+public func ParseInternalKey(_ internal_key: Slice, _ result: inout ParsedInternalKey) -> Bool {
+    let n = internal_key.size()
+    if n < 8 {
+        return false
+    }
+    var num: UInt64 = internal_key.data().suffix(8).withUnsafeBytes {
+        DecodeFixed64($0.bindMemory(to: UInt8.self).baseAddress!)
+    }
+    var c: UInt8 = UInt8(num & 0xFF)
+    result.sequence = num >> 8
+    result.type = ValueType(rawValue: c)!
+    result.user_key = Slice(internal_key.data(), n - 8)
+    return c <= ValueType.kTypeValue.rawValue
+}
+
+public class LookupKey{
+  
 }
 
 fileprivate func PackSequenceAndType(_ seq: UInt64, _ t: ValueType) -> UInt64 {

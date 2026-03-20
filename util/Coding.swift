@@ -34,3 +34,7 @@ public func EncodeFixed64(_ dst: inout [UInt8], _ value: UInt64) {
 public func DecodeFixed32(_ ptr: UnsafePointer<UInt8>) -> UInt32 {
     return UInt32(ptr[0]) | (UInt32(ptr[1]) << 8) | (UInt32(ptr[2]) << 16) | (UInt32(ptr[3]) << 24)
 }
+
+public func DecodeFixed64(_ ptr: UnsafePointer<UInt8>) -> UInt64 {
+    return UInt64(ptr[0]) | (UInt64(ptr[1]) << 8) | (UInt64(ptr[2]) << 16) | (UInt64(ptr[3]) << 24) | UInt64(ptr[4] << 32) | (UInt64(ptr[5]) << 40) | (UInt64(ptr[6]) << 48) | (UInt64(ptr[7]) << 56)
+}
