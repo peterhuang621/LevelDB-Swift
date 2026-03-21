@@ -138,7 +138,7 @@ public func ReadFileToString(_ env: Env, _ fname: String, _ data: inout String) 
     }
 
     let kBufferSize = 8192
-    var space = Array(repeating: UInt8(0), count: kBufferSize)
+    let space = Array(repeating: UInt8(0), count: kBufferSize)
     while true {
         var fragment = Slice()
         s = file.Read(kBufferSize, &fragment, space)

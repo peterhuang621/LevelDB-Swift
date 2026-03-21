@@ -51,7 +51,7 @@ public final class BytewiseComparatorImpl: Comparator, Sendable {
             if diff_byte < 0xFF && (diff_byte &+ 1 < limit[diff_index]) {
                 startBytes[diff_index] &+= 1
                 startBytes.removeSubrange((diff_index + 1) ..< startBytes.count)
-                start = String(decoding: startBytes, as: UTF8.self)
+                start = String(bytes: startBytes, encoding: .isoLatin1)!
                 precondition(Compare(Slice(startBytes), limit) < 0, "fail to generate new shortest separator")
             }
         }

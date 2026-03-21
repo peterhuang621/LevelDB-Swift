@@ -133,6 +133,6 @@ public struct Status {
         }
 
         let msgData = state_.subdata(in: 5 ..< (5 + Int(length())))
-        return type + String(decoding: msgData, as: UTF8.self)
+      return type + String(bytes: msgData, encoding: .isoLatin1)!
     }
 }

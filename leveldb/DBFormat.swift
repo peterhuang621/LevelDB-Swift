@@ -80,8 +80,8 @@ public class InternalKeyComparator: Comparator {
     public func FindShortestSeparator(_ start: inout String, _ limit: Slice) {
         guard let user_comparator_ = user_comparator_ else { fatalError("user_comparator should not be empty") }
 
-        var user_start = ExtractUserKey(str: start)
-        var user_limit = ExtractUserKey(limit)
+        let user_start = ExtractUserKey(str: start)
+        let user_limit = ExtractUserKey(limit)
         var tmp = String(user_start.prefix(user_limit.size()))
 
         user_comparator_.FindShortestSeparator(&tmp, user_limit)
@@ -97,7 +97,7 @@ public class InternalKeyComparator: Comparator {
     public func FindShortSuccessor(_ key: inout String) {
         guard let user_comparator_ = user_comparator_ else { fatalError("user_comparator should not be empty") }
 
-        var user_key = ExtractUserKey(str: key)
+        let user_key = ExtractUserKey(str: key)
         var tmp = user_key
 
         user_comparator_.FindShortSuccessor(&tmp)
@@ -169,18 +169,38 @@ public func ParseInternalKey(_ internal_key: Slice, _ result: inout ParsedIntern
     if n < 8 {
         return false
     }
-    var num: UInt64 = internal_key.data().suffix(8).withUnsafeBytes {
+    let num: UInt64 = internal_key.data().suffix(8).withUnsafeBytes {
         DecodeFixed64($0.bindMemory(to: UInt8.self).baseAddress!)
     }
-    var c: UInt8 = UInt8(num & 0xFF)
+    let c: UInt8 = UInt8(num & 0xFF)
     result.sequence = num >> 8
     result.type = ValueType(rawValue: c)!
     result.user_key = Slice(internal_key.data(), n - 8)
     return c <= ValueType.kTypeValue.rawValue
 }
 
-public class LookupKey{
-  
+public class LookupKey {
+    private var space_: Data = Data()
+    private var start_: Int
+    private var kstart_: Int
+    private var end_: Int
+
+    init(_ user_key: Slice, _ s: SequenceNumber) {
+        let usize: UInt32 = UInt32(user_key.size())
+        let needed = usize + 13
+
+        space_.removeAll(keepingCapacity: true)
+        space_.reserveCapacity(Int(needed))
+
+        start_ = 0
+
+        EncodeVarint32(&space_, usize + 8)
+        kstart_ = space_.count
+
+        space_.append(user_key.data())
+        EncodeFixed64(dstData: &space_, value: PackSequenceAndType(s, kValueTypeForSeek))
+        end_ = space_.count
+    }
 }
 
 fileprivate func PackSequenceAndType(_ seq: UInt64, _ t: ValueType) -> UInt64 {
