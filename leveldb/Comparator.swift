@@ -48,7 +48,7 @@ public final class BytewiseComparatorImpl: Comparator, Sendable {
             // Do not shorten if one string is a prefix of the other
         } else {
             let diff_byte = startBytes[diff_index]
-            if diff_byte < 0xFF && (diff_byte &+ 1 < limit[diff_index]) {
+            if diff_byte < 0xff && (diff_byte &+ 1 < limit[diff_index]) {
                 startBytes[diff_index] &+= 1
                 startBytes.removeSubrange((diff_index + 1) ..< startBytes.count)
                 start = String(bytes: startBytes, encoding: .isoLatin1)!
@@ -60,7 +60,7 @@ public final class BytewiseComparatorImpl: Comparator, Sendable {
     public func FindShortSuccessor(_ key: inout String) {
         var bytes = Array(key.utf8)
         for i in 0 ..< bytes.count {
-            if bytes[i] != 0xFF {
+            if bytes[i] != 0xff {
                 bytes[i] &+= 1
                 return
             }
