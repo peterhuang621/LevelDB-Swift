@@ -101,7 +101,7 @@ public class Env {
 
 public func DoWriteStringToFile(_ env: Env, _ data: Slice, _ fname: String, _ should_sync: Bool) -> Status {
     var f: WritableFile?
-    var file = f!
+    let file = f!
     var s = env.NewAppendableFile(fname, &f)
     if !s.ok() {
         return s
@@ -131,7 +131,7 @@ public func WriteStringToFileSync(_ env: Env, _ data: Slice, _ fname: String) ->
 public func ReadFileToString(_ env: Env, _ fname: String, _ data: inout String) -> Status {
     data.removeAll()
     var f: SequentialFile?
-    var file = f!
+    let file = f!
     var s = env.NewSequentialFile(fname, &f)
     if !s.ok() {
         return s
