@@ -31,17 +31,17 @@ private class CorruptionReporter {
 }
 
 private func PrintLogContents(_ env: Env, _ fname: String, _ f: ((UInt64, Slice, inout WritableFile) -> Void)?, _ dst: inout WritableFile) -> Status {
-    //  var file :SequentialFile?
-    //  let s=env.NewSequentialFile(fname, &file)
-    //  if !s.ok(){return s}
-    //  var reporter=CorruptionReporter()
-    //  reporter.dst_=dst
-    //  var Reader = reader(file, &reporter, true, 0);
-    //  var record:Slice;
-    //  var scratch:String;
-    //  while reader.ReadRecord(&record, &scratch) {
-//    f(reader.LastRecordOffset(), record, dst)
-    //  }
+//    var file: SequentialFile?
+//    let s = env.NewSequentialFile(fname, &file)
+//    if !s.ok() { return s }
+//    var reporter = CorruptionReporter()
+//    reporter.dst_ = dst
+//    var Reader = reader(file, &reporter, true, 0)
+//    var record: Slice
+//    var scratch: String
+//    while reader.ReadRecord(&record, &scratch) {
+//        f(reader.LastRecordOffset(), record, dst)
+//    }
     return Status.OK()
 }
 

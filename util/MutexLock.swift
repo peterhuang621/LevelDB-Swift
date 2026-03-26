@@ -41,7 +41,7 @@ public final class CondVar {
     }
 }
 
-class MutexLock {
+public class MutexLock {
     private let mu_:Mutex
 
     init(mu: Mutex) {

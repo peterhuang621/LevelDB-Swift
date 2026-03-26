@@ -7,7 +7,7 @@
 
 import Foundation
 
-func Hash(_ data: UnsafePointer<UInt8>, _ n: size_t, _ seed: UInt32) -> UInt32 {
+public func Hash(_ data: UnsafePointer<UInt8>, _ n: size_t, _ seed: UInt32) -> UInt32 {
     let m: UInt32 = 0xC6A4A793
     let r: UInt32 = 24
     let limit = data.advanced(by: n)
@@ -41,7 +41,7 @@ func Hash(_ data: UnsafePointer<UInt8>, _ n: size_t, _ seed: UInt32) -> UInt32 {
     return h
 }
 
-func Hash(_ data: Data, _ seed: UInt32) -> UInt32 {
+public func Hash(_ data: Data, _ seed: UInt32) -> UInt32 {
     return data.withUnsafeBytes { rawBuf in
         let ptr = rawBuf.bindMemory(to: UInt8.self).baseAddress!
         return Hash(ptr, data.count, seed)

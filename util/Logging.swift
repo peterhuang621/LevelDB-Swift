@@ -7,11 +7,11 @@
 
 import Foundation
 
-func AppendNumberTo(_ str: inout String, _ num: UInt64) {
+public func AppendNumberTo(_ str: inout String, _ num: UInt64) {
     str.append(String(num))
 }
 
-func AppendEscapedStringTo(_ str: inout String, _ value: Slice) {
+public func AppendEscapedStringTo(_ str: inout String, _ value: Slice) {
     // " " - 32 "~" - 126
     for c in value.data() {
         if (32 ... 126).contains(c) {
@@ -22,19 +22,19 @@ func AppendEscapedStringTo(_ str: inout String, _ value: Slice) {
     }
 }
 
-func NumberToString(_ num: UInt64) -> String {
+public func NumberToString(_ num: UInt64) -> String {
     var r = ""
     AppendNumberTo(&r, num)
     return r
 }
 
-func EscapeString(_ value: Slice) -> String {
+public func EscapeString(_ value: Slice) -> String {
     var r = ""
     AppendEscapedStringTo(&r, value)
     return r
 }
 
-func ConsumeDecimalNumber(_ input: inout Slice, _ val: inout UInt64) -> Bool {
+public func ConsumeDecimalNumber(_ input: inout Slice, _ val: inout UInt64) -> Bool {
     let kMaxUint64 = UInt64.max
     let kLastDigitOfMaxUint64 = UInt64(kMaxUint64 % 10)
 
