@@ -70,8 +70,8 @@ public struct Slice: Equatable, Comparable {
         return data_[index]
     }
 
-    public mutating func clear() {
-        data_ = Data()
+    public mutating func clear(keepcapacity: Bool = false) {
+        data_.removeAll(keepingCapacity: keepcapacity)
     }
 
     public mutating func remove_prefix(_ n: Int) {

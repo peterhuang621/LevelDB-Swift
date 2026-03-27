@@ -56,6 +56,28 @@ public struct Status {
         state_ = data
     }
 
+    private init(_ code: Code, _ msg: String, _ msg2: String) {
+        precondition(code != .kOk, "code = \(code) is not kOk")
+        let len1 = msg.count
+        let len2 = msg2.count
+        let size = len1 + (len2 > 0 ? (2 + len2) : 0)
+
+        var data = Data(capacity: size + 5)
+
+        var length32 = UInt32(size)
+        data.append(Data(bytes: &length32, count: 4))
+        data.append(UInt8(code.rawValue))
+        data.append(contentsOf: msg.utf8)
+
+        if len2 > 0 {
+            data.append(UInt8(ascii: ":"))
+            data.append(UInt8(ascii: " "))
+            data.append(contentsOf: msg2.utf8)
+        }
+
+        state_ = data
+    }
+
     // MARK: - Query Methods
 
     public static func OK() -> Status { return Status() }
@@ -65,6 +87,10 @@ public struct Status {
     }
 
     public static func Corruption(_ msg: Slice, _ msg2: Slice = Slice()) -> Status {
+        return Status(.kCorruption, msg, msg2)
+    }
+
+    public static func Corruption(_ msg: String, _ msg2: String = String()) -> Status {
         return Status(.kCorruption, msg, msg2)
     }
 
@@ -133,6 +159,6 @@ public struct Status {
         }
 
         let msgData = state_.subdata(in: 5 ..< (5 + Int(length())))
-      return type + String(bytes: msgData, encoding: .isoLatin1)!
+        return type + String(bytes: msgData, encoding: .isoLatin1)!
     }
 }
