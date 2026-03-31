@@ -23,7 +23,7 @@ private func MakeFileName(_ dbname: String, _ number: UInt64, suffix: String) ->
 }
 
 private func MakeFileName(_ dbname: String, _ number: UInt64, charArray: [UInt8]) -> String {
-    var tmp = String(bytes: charArray, encoding: .utf8) ?? ""
+    let tmp = String(bytes: charArray, encoding: .utf8) ?? ""
     let buf = String(format: "/%06llu.%@", number, tmp)
     return dbname + buf
 }
@@ -97,7 +97,7 @@ public func ParseFileName(_ filename: String, _ number: inout UInt64, _ type: in
         if !ConsumeDecimalNumber(&rest, &num) {
             return false
         }
-        var suffix = rest
+        let suffix = rest
         if suffix == Slice(".log") {
             type = .kLogFile
         } else if suffix == Slice(".sst") || suffix == Slice(".ldb") {

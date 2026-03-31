@@ -23,6 +23,8 @@
 /* End PBXCopyFilesBuildPhase section */
 
 /* Begin PBXFileReference section */
+		E063FBD22F78476B00F9E948 /* LevelDB-Swift-Bridging-Header.h */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.c.h; path = "LevelDB-Swift-Bridging-Header.h"; sourceTree = "<group>"; };
+		E063FBD32F78476B00F9E948 /* crc32c_arm.h */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.c.h; path = crc32c_arm.h; sourceTree = "<group>"; };
 		E0B043DF2EF07549002E4914 /* LevelDB-Swift */ = {isa = PBXFileReference; explicitFileType = "compiled.mach-o.executable"; includeInIndex = 0; path = "LevelDB-Swift"; sourceTree = BUILT_PRODUCTS_DIR; };
 		E0B043E22EF07549002E4914 /* main.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = main.swift; sourceTree = "<group>"; };
 /* End PBXFileReference section */
@@ -33,14 +35,14 @@
 			path = db;
 			sourceTree = "<group>";
 		};
+		E063FBBE2F78420600F9E948 /* util */ = {
+			isa = PBXFileSystemSynchronizedRootGroup;
+			path = util;
+			sourceTree = "<group>";
+		};
 		E0B043E92EF07784002E4914 /* leveldb */ = {
 			isa = PBXFileSystemSynchronizedRootGroup;
 			path = leveldb;
-			sourceTree = "<group>";
-		};
-		E0CD04E22F2D028D00F78B91 /* util */ = {
-			isa = PBXFileSystemSynchronizedRootGroup;
-			path = util;
 			sourceTree = "<group>";
 		};
 /* End PBXFileSystemSynchronizedRootGroup section */
@@ -59,11 +61,13 @@
 		E0B043D62EF07549002E4914 = {
 			isa = PBXGroup;
 			children = (
+				E063FBD32F78476B00F9E948 /* crc32c_arm.h */,
 				E0B043E92EF07784002E4914 /* leveldb */,
 				E0B043E22EF07549002E4914 /* main.swift */,
 				E02F44972F66FF58003B9FD3 /* db */,
-				E0CD04E22F2D028D00F78B91 /* util */,
+				E063FBBE2F78420600F9E948 /* util */,
 				E0B043E02EF07549002E4914 /* Products */,
+				E063FBD22F78476B00F9E948 /* LevelDB-Swift-Bridging-Header.h */,
 			);
 			sourceTree = "<group>";
 		};
@@ -92,8 +96,8 @@
 			);
 			fileSystemSynchronizedGroups = (
 				E02F44972F66FF58003B9FD3 /* db */,
+				E063FBBE2F78420600F9E948 /* util */,
 				E0B043E92EF07784002E4914 /* leveldb */,
-				E0CD04E22F2D028D00F78B91 /* util */,
 			);
 			name = "LevelDB-Swift";
 			packageProductDependencies = (
@@ -114,6 +118,7 @@
 				TargetAttributes = {
 					E0B043DE2EF07549002E4914 = {
 						CreatedOnToolsVersion = 26.1.1;
+						LastSwiftMigration = 2640;
 					};
 				};
 			};
@@ -277,13 +282,19 @@
 		E0B043E72EF07549002E4914 /* Debug */ = {
 			isa = XCBuildConfiguration;
 			buildSettings = {
+				CLANG_ENABLE_MODULES = YES;
 				"CODE_SIGN_IDENTITY[sdk=macosx*]" = "-";
 				CODE_SIGN_STYLE = Automatic;
+				COMPILER_INDEX_STORE_ENABLE = Default;
 				DEAD_CODE_STRIPPING = YES;
 				DEVELOPMENT_TEAM = 9R46Z9BAV2;
 				ENABLE_HARDENED_RUNTIME = YES;
+				OTHER_CFLAGS = "";
 				PRODUCT_NAME = "$(TARGET_NAME)";
 				SWIFT_APPROACHABLE_CONCURRENCY = YES;
+				SWIFT_OBJC_BRIDGING_HEADER = "LevelDB-Swift-Bridging-Header.h";
+				SWIFT_OPTIMIZATION_LEVEL = "-Onone";
+				SWIFT_STRICT_MEMORY_SAFETY = NO;
 				SWIFT_UPCOMING_FEATURE_MEMBER_IMPORT_VISIBILITY = YES;
 				SWIFT_VERSION = 6.0;
 			};
@@ -292,13 +303,18 @@
 		E0B043E82EF07549002E4914 /* Release */ = {
 			isa = XCBuildConfiguration;
 			buildSettings = {
+				CLANG_ENABLE_MODULES = YES;
 				"CODE_SIGN_IDENTITY[sdk=macosx*]" = "-";
 				CODE_SIGN_STYLE = Automatic;
+				COMPILER_INDEX_STORE_ENABLE = Default;
 				DEAD_CODE_STRIPPING = YES;
 				DEVELOPMENT_TEAM = 9R46Z9BAV2;
 				ENABLE_HARDENED_RUNTIME = YES;
+				OTHER_CFLAGS = "";
 				PRODUCT_NAME = "$(TARGET_NAME)";
 				SWIFT_APPROACHABLE_CONCURRENCY = YES;
+				SWIFT_OBJC_BRIDGING_HEADER = "LevelDB-Swift-Bridging-Header.h";
+				SWIFT_STRICT_MEMORY_SAFETY = NO;
 				SWIFT_UPCOMING_FEATURE_MEMBER_IMPORT_VISIBILITY = YES;
 				SWIFT_VERSION = 6.0;
 			};

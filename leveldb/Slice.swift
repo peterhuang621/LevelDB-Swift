@@ -20,11 +20,11 @@ public struct Slice: Equatable, Comparable {
         data_ = Data(s.utf8)
     }
 
-    public init(_ d: UnsafePointer<UInt8>, _ n: size_t) {
+    public init(_ d: UnsafePointer<UInt8>, _ n: Int) {
         data_ = Data(bytes: d, count: n)
     }
 
-    public init(_ d: [UInt8], _ n: size_t) {
+    public init(_ d: [UInt8], _ n: Int) {
         data_ = Data(bytes: d, count: n)
     }
 
@@ -32,7 +32,7 @@ public struct Slice: Equatable, Comparable {
         data_ = Data(bytes: d, count: d.count)
     }
 
-    public init(_ d: Data, _ n: size_t) {
+    public init(_ d: Data, _ n: Int) {
         if d.count == n {
             data_ = d
         } else {

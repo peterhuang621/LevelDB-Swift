@@ -7,7 +7,7 @@
 
 import Foundation
 
-public func Hash(_ data: UnsafePointer<UInt8>, _ n: size_t, _ seed: UInt32) -> UInt32 {
+public func Hash(_ data: UnsafePointer<UInt8>, _ n: Int, _ seed: UInt32) -> UInt32 {
     let m: UInt32 = 0xC6A4A793
     let r: UInt32 = 24
     let limit = data.advanced(by: n)

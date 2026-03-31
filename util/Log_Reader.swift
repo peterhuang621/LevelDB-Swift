@@ -12,6 +12,8 @@ public class Reader {
         func Corruption(_ bytes: Int, _ status: Status)
     }
 
+    // MARK: - Private properties and functions
+
     private let file_: SequentialFile?
     private let reporter_: Reporter?
     private var checksum_: Bool
@@ -68,7 +70,7 @@ public class Reader {
             if buffer_.size() < kHeaderSize {
                 if !eof_ {
                     buffer_.clear(keepcapacity: true)
-                    var status = file_!.Read(kBlockSize, &buffer_, backing_store_)
+                    let status = file_!.Read(kBlockSize, &buffer_, backing_store_)
                     end_of_buffer_offset_ += UInt64(buffer_.size())
                     if !status.ok() {
                         buffer_.clear(keepcapacity: true)
@@ -92,7 +94,7 @@ public class Reader {
             let length: UInt32 = (a | (b << 8))
 
             if UInt32(kHeaderSize) + length > UInt32(buffer_.size()) {
-                var drop_size = buffer_.size()
+                let drop_size = buffer_.size()
                 buffer_.clear(keepcapacity: true)
                 if !eof_ {
                     ReportCorruption(UInt64(drop_size), "bad record length")
@@ -107,10 +109,14 @@ public class Reader {
             }
 
             if checksum_ {
-                let expected_crc: UInt32
-//                expected_crc = crc32c:: Unmask(DecodeFixed32(header))
-                let actual_crc: UInt32
-//                actual_crc = crc32c:: Value(header + 6, 1 + length)
+                var expected_crc: UInt32 = 0
+                var actual_crc: UInt32 = 0
+                header.withUnsafeBytes {
+                    let pointer = $0.baseAddress!.assumingMemoryBound(to: UInt8.self)
+                    expected_crc = Unmask(DecodeFixed32(pointer))
+                    actual_crc = Value(pointer.advanced(by: 6), Int(1 + length))
+                }
+
                 if actual_crc != expected_crc {
                     let drop_size = buffer_.size()
                     buffer_.clear(keepcapacity: true)
@@ -130,7 +136,7 @@ public class Reader {
                 return UInt(ReaderRecordType.kBadRecord.rawValue)
             }
 
-            result = Slice(header.suffix(header.count - kHeaderSize), size_t(length))
+            result = Slice(header.suffix(header.count - kHeaderSize), Int(length))
             return type
         }
     }
@@ -148,6 +154,8 @@ public class Reader {
 
         reporter.Corruption(Int(bytes), reason)
     }
+
+    // MARK: - Public functions
 
     public func ReadRecord(_ record: inout Slice, _ scratch: inout [UInt8]) -> Bool {
         if last_record_offset_ < initial_offset_ {

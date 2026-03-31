@@ -163,14 +163,14 @@ public protocol Logger {
 public protocol RandomAccessFile {
     func Read(
         _ offset: UInt64,
-        _ n: size_t,
+        _ n: Int,
         _ result: inout Slice,
         _ scratch: [UInt8]
     ) -> Status
 }
 
 public protocol SequentialFile {
-    func Read(_ n: size_t, _ result: inout Slice, _ scratch: [UInt8]) -> Status
+    func Read(_ n: Int, _ result: inout Slice, _ scratch: [UInt8]) -> Status
 
     func Skip(_ n: UInt64) -> Status
 }

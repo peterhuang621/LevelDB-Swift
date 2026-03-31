@@ -47,7 +47,7 @@ public struct ParsedInternalKey {
     }
 }
 
-public func InternalKeyEncodingLength(_ key: ParsedInternalKey) -> size_t {
+public func InternalKeyEncodingLength(_ key: ParsedInternalKey) -> Int {
     return key.user_key.size() + 8
 }
 
@@ -76,12 +76,10 @@ public class InternalKeyComparator: Comparator {
     public func Compare(_ akey: Slice, _ bkey: Slice) -> Int {
         var r = user_comparator_!.Compare(ExtractUserKey(akey), ExtractUserKey(bkey))
         if r == 0 {
-            var a = akey
-            var b = bkey
-            let anum = a.data().suffix(8).withUnsafeBytes {
+            let anum = akey.data().suffix(8).withUnsafeBytes {
                 DecodeFixed64($0.bindMemory(to: UInt8.self).baseAddress!)
             }
-            let bnum = b.data().suffix(8).withUnsafeBytes {
+            let bnum = bkey.data().suffix(8).withUnsafeBytes {
                 DecodeFixed64($0.bindMemory(to: UInt8.self).baseAddress!)
             }
             r = (anum > bnum) ? -1 : 1
@@ -92,12 +90,10 @@ public class InternalKeyComparator: Comparator {
     public func Compare(aStr: String, bStr: String) -> Int {
         var r = user_comparator_!.Compare(aStr: String(aStr.prefix(aStr.count - 8)), bStr: String(bStr.prefix(bStr.count - 8)))
         if r == 0 {
-            var a = aStr
-            var b = bStr
-            let anum = a.suffix(8).withUnsafeBytes {
+            let anum = aStr.suffix(8).withUnsafeBytes {
                 DecodeFixed64($0.bindMemory(to: UInt8.self).baseAddress!)
             }
-            let bnum = b.suffix(8).withUnsafeBytes {
+            let bnum = bStr.suffix(8).withUnsafeBytes {
                 DecodeFixed64($0.bindMemory(to: UInt8.self).baseAddress!)
             }
             r = (anum > bnum) ? -1 : 1
@@ -157,7 +153,7 @@ public class InternalFilterPolicy: FilterPolicy {
         user_policy_ = p
     }
 
-  public func Name() -> String {
+    public func Name() -> String {
         return user_policy_!.Name()
     }
 

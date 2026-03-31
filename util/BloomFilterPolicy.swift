@@ -38,7 +38,7 @@ public class BloomFilterPolicy: FilterPolicy {
             bits = 64
         }
 
-        var bytes = (bits &+ 7) / 8
+        let bytes = (bits &+ 7) / 8
         bits = bytes * 8
 
         let init_size = dst.count
@@ -52,7 +52,7 @@ public class BloomFilterPolicy: FilterPolicy {
             for i in 0 ..< n {
                 var h = BloomHash(keys[i])
                 let delta = ((h >> 17) | (h << 15))
-                for j in 0 ..< k_ {
+                for _ in 0 ..< k_ {
                     let bitpos = h % bits
                     array[Int(bitpos) / 8] |= (1 << (bitpos % 8))
                     h &+= delta

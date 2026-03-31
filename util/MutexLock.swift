@@ -42,14 +42,14 @@ public final class CondVar {
 }
 
 public class MutexLock {
-    private let mu_:Mutex
+    private let mu_: Mutex
 
     init(mu: Mutex) {
         mu_ = mu
         mu_.Lock()
     }
 
-    deinit{
+    deinit {
         mu_.Unlock()
     }
 }

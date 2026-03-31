@@ -40,8 +40,8 @@ public class LRUHandle {
     var next: UnsafeMutablePointer<LRUHandle>?
     var prev: UnsafeMutablePointer<LRUHandle>?
 
-    var charge: size_t = 0
-    var key_length: size_t = 0
+    var charge: Int = 0
+    var key_length: Int = 0
     var in_cache: Bool = false
     var refs: UInt32 = 0
     var hash: UInt32 = 0
@@ -151,8 +151,8 @@ public class HandleTable {
 public class LRUCache {
     // MARK: - Private properties and functions
 
-    private var capacity_: size_t
-    private var usage_: size_t
+    private var capacity_: Int
+    private var usage_: Int
     private var lru_: UnsafeMutablePointer<LRUHandle>
     private var in_use_: UnsafeMutablePointer<LRUHandle>
     private var table_: HandleTable
@@ -229,18 +229,18 @@ public class LRUCache {
         in_use_.deallocate()
     }
 
-    public func SetCapacity(_ capacity: size_t) { capacity_ = capacity }
+    public func SetCapacity(_ capacity: Int) { capacity_ = capacity }
 
     public func Insert(
         _ key: Slice,
         _ hash: UInt32,
         _ value: UnsafeMutableRawPointer?,
-        _ charge: size_t,
+        _ charge: Int,
         _ deleter: ((Slice, UnsafeMutableRawPointer?) -> Void)?
     ) -> UnsafeMutablePointer<Cache.Handle>? {
         _ = MutexLock(mu: mutex_)
 
-        var e = UnsafeMutablePointer<LRUHandle>.allocate(capacity: 1)
+        let e = UnsafeMutablePointer<LRUHandle>.allocate(capacity: 1)
 
         e.pointee.value = value
         e.pointee.deleter = deleter
@@ -310,7 +310,7 @@ public class LRUCache {
         }
     }
 
-    public func TotalCharge() -> size_t {
+    public func TotalCharge() -> Int {
         _ = MutexLock(mu: mutex_)
         return usage_
     }
@@ -339,7 +339,7 @@ public class ShardedLRUCache: Cache {
 
     // MARK: - Public functions and initializers
 
-    init(_ capacity: size_t) {
+    init(_ capacity: Int) {
         last_id_ = 0
         let per_shard = (capacity + (kNumShards - 1)) / kNumShards
         for s in 0 ..< kNumShards {
@@ -390,7 +390,7 @@ public class ShardedLRUCache: Cache {
     }
 
     public func TotalCharge() -> Int {
-        var total: size_t = 0
+        var total: Int = 0
         for s in 0 ..< kNumShards {
             total += shard_[s].TotalCharge()
         }
@@ -398,6 +398,6 @@ public class ShardedLRUCache: Cache {
     }
 }
 
-public func NewLRUCache(_ capacity: size_t) -> ShardedLRUCache {
+public func NewLRUCache(_ capacity: Int) -> ShardedLRUCache {
     return ShardedLRUCache(capacity)
 }
