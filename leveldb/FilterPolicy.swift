@@ -15,6 +15,6 @@ public protocol FilterPolicy {
     func KeyMayMatch(_ key: Slice, _ filter: Slice) -> Bool
 }
 
-public func NewBloomFilterPolicy(_ bits_per_key: UInt32) -> FilterPolicy? {
+public func NewBloomFilterPolicy(_ bits_per_key: UInt32) -> FilterPolicy {
     return BloomFilterPolicy(bits_per_key)
 }

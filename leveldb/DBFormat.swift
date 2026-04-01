@@ -21,7 +21,7 @@ public enum ValueType: UInt8, Sendable {
 
 private let kValueTypeForSeek = ValueType.kTypeValue
 
-typealias SequenceNumber = UInt64
+public typealias SequenceNumber = UInt64
 private let kMaxSequenceNumber = ((0x1 << 56) - 1)
 
 public struct ParsedInternalKey {
@@ -77,10 +77,10 @@ public class InternalKeyComparator: Comparator {
         var r = user_comparator_!.Compare(ExtractUserKey(akey), ExtractUserKey(bkey))
         if r == 0 {
             let anum = akey.data().suffix(8).withUnsafeBytes {
-                DecodeFixed64($0.bindMemory(to: UInt8.self).baseAddress!)
+                DecodeFixed64($0.baseAddress!.assumingMemoryBound(to: UInt8.self))
             }
             let bnum = bkey.data().suffix(8).withUnsafeBytes {
-                DecodeFixed64($0.bindMemory(to: UInt8.self).baseAddress!)
+                DecodeFixed64($0.baseAddress!.assumingMemoryBound(to: UInt8.self))
             }
             r = (anum > bnum) ? -1 : 1
         }
@@ -91,10 +91,10 @@ public class InternalKeyComparator: Comparator {
         var r = user_comparator_!.Compare(aStr: String(aStr.prefix(aStr.count - 8)), bStr: String(bStr.prefix(bStr.count - 8)))
         if r == 0 {
             let anum = aStr.suffix(8).withUnsafeBytes {
-                DecodeFixed64($0.bindMemory(to: UInt8.self).baseAddress!)
+                DecodeFixed64($0.baseAddress!.assumingMemoryBound(to: UInt8.self))
             }
             let bnum = bStr.suffix(8).withUnsafeBytes {
-                DecodeFixed64($0.bindMemory(to: UInt8.self).baseAddress!)
+                DecodeFixed64($0.baseAddress!.assumingMemoryBound(to: UInt8.self))
             }
             r = (anum > bnum) ? -1 : 1
         }
@@ -147,25 +147,25 @@ public class InternalKeyComparator: Comparator {
 }
 
 public class InternalFilterPolicy: FilterPolicy {
-    private let user_policy_: FilterPolicy?
+    private let user_policy_: FilterPolicy
 
-    init(_ p: FilterPolicy?) {
+    init(_ p: FilterPolicy) {
         user_policy_ = p
     }
 
     public func Name() -> String {
-        return user_policy_!.Name()
+        return user_policy_.Name()
     }
 
     public func CreateFilter(_ keys: inout [Slice], _ n: Int, _ dst: inout Data) {
         for i in 0 ..< n {
             keys[i] = ExtractUserKey(keys[i])
         }
-        user_policy_?.CreateFilter(&keys, n, &dst)
+        user_policy_.CreateFilter(&keys, n, &dst)
     }
 
     public func KeyMayMatch(_ key: Slice, _ filter: Slice) -> Bool {
-        return user_policy_!.KeyMayMatch(ExtractUserKey(key), filter)
+        return user_policy_.KeyMayMatch(ExtractUserKey(key), filter)
     }
 }
 
@@ -214,7 +214,7 @@ public func ParseInternalKey(_ internal_key: Slice, _ result: inout ParsedIntern
         return false
     }
     let num: UInt64 = internal_key.data().suffix(8).withUnsafeBytes {
-        DecodeFixed64($0.bindMemory(to: UInt8.self).baseAddress!)
+        DecodeFixed64($0.baseAddress!.assumingMemoryBound(to: UInt8.self))
     }
     let c: UInt8 = UInt8(num & 0xFF)
     result.sequence = num >> 8

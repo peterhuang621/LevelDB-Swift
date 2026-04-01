@@ -8,7 +8,10 @@
 import Foundation
 
 fileprivate func BloomHash(_ key: Slice) -> UInt32 {
-    return Hash(key.data().withUnsafeBytes { $0.bindMemory(to: UInt8.self).baseAddress! }, key.size(), 0xBC9F1D34)
+    return Hash(
+        key.data().withUnsafeBytes { $0.baseAddress!.assumingMemoryBound(to: UInt8.self) },
+        key.size(),
+        0xBC9F1D34)
 }
 
 public class BloomFilterPolicy: FilterPolicy {

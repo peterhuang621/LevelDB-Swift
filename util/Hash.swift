@@ -42,8 +42,8 @@ public func Hash(_ data: UnsafePointer<UInt8>, _ n: Int, _ seed: UInt32) -> UInt
 }
 
 public func Hash(_ data: Data, _ seed: UInt32) -> UInt32 {
-    return data.withUnsafeBytes { rawBuf in
-        let ptr = rawBuf.bindMemory(to: UInt8.self).baseAddress!
+    return data.withUnsafeBytes {
+        let ptr = $0.baseAddress!.assumingMemoryBound(to: UInt8.self)
         return Hash(ptr, data.count, seed)
     }
 }
