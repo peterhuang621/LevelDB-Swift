@@ -39,23 +39,60 @@ public class WriteBatch {
     }
 
     public func Iterate(_ handler: inout Handler) -> Status {
-        return Status()
+        var input = Slice(rep_)
+        if input.size() < kHeader {
+            return Status.Corruption("malformed WriteBatch (too small)")
+        }
+
+        input.remove_prefix(kHeader)
+        var key: Slice
+        var value: Slice
+        var found = 0
+        while !input.empty() {
+            found += 1
+            let tag = ValueType(rawValue: input[0])
+            input.remove_prefix(1)
+
+            switch tag {
+            case .kTypeValue:
+                if GetLengthPrefixedSlice(&input, &key) && GetLengthPrefixedSlice(&input, &value) {
+                    handler.Put(key, value)
+                } else {
+                    return Status.Corruption("bad WriteBatch Put")
+                }
+            case .kTypeDeletion:
+                if GetLengthPrefixedSlice(&input, &key) {
+                    handler.Delete(key)
+                    return Status.Corruption("bad WriteBatch Delete")
+                }
+            default:
+                return Status.Corruption("unknown WriteBatch tag")
+            }
+        }
+        if found != WriteBatchInternal.Count(self) {
+            return Status.Corruption("WriteBatch has wrong count")
+        }
+        return Status.OK()
     }
 }
 
 public class WriteBatchInternal {
     public static func Count(_ batch: WriteBatch) -> Int {
-        return 0
+        return batch.rep_.withUnsafeBufferPointer {
+            return Int(DecodeFixed32($0.baseAddress!.advanced(by: 8)))
+        }
     }
 
     public static func SetCount(_ batch: inout WriteBatch, _ n: Int) {
+        EncodeFixed32(dst: &batch.rep_, offset: 8, value: UInt32(n))
     }
 
     public static func Sequence(_ batch: WriteBatch) -> SequenceNumber {
-        return 0
+        return SequenceNumber(DecodeFixed64(batch.rep_))
     }
 
     public static func SetSequence(_ batch: inout WriteBatch, _ seq: SequenceNumber) {
+        EncodeFixed64(dst: &batch.rep_, value: seq)
     }
 
     public static func Contents(_ batch: WriteBatch) -> Slice { return Slice(batch.rep_) }

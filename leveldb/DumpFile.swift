@@ -56,8 +56,24 @@ private func PrintLogContents(_ env: Env, _ fname: String, _ f: (UInt64, Slice, 
     return Status.OK()
 }
 
-public class WriteBatchItemPrinter {
-    public var dst_: WritableFile?
+public class WriteBatchItemPrinter: WriteBatch.Handler {
+    public var dst_: WritableFile!
+
+    public func Put(_ key: Slice, _ value: Slice) {
+        var r = "  put '"
+        AppendEscapedStringTo(&r, key)
+        r += "' '"
+        AppendEscapedStringTo(&r, value)
+        r += "'\n"
+        _ = dst_.Append(r)
+    }
+
+    public func Delete(_ key: Slice) {
+        var r = "  del '"
+        AppendEscapedStringTo(&r, key)
+        r += "'\n"
+        _ = dst_.Append(r)
+    }
 }
 
 fileprivate func WriteBatchPrinter(_ pos: UInt64, _ record: Slice, _ dst: inout WritableFile) {
