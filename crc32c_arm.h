@@ -11,7 +11,7 @@
 #include <arm_acle.h>
 #include <stdio.h>
 
-uint32_t crc32c_arm(uint32_t crc, const uint8_t *data, size_t len) {
+static inline uint32_t crc32c_arm(uint32_t crc, const uint8_t *data, size_t len) {
     while (len >= 8) {
         crc = __crc32cd(crc, *(const uint64_t *)data);
         data += 8;

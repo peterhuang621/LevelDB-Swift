@@ -31,7 +31,7 @@ private class CorruptionReporter: Reader.Reporter {
 
     public func Corruption(_ bytes: Int, _ status: Status) {
         var r = "corruption: "
-        AppendNumberTo(&r, UInt64(bytes))
+        AppendNumberTo(&r, bytes)
         r += " bytes; "
         r += status.ToString()
         r.append("\n")
@@ -45,9 +45,9 @@ private func PrintLogContents(_ env: Env, _ fname: String, _ f: (UInt64, Slice, 
     if !s.ok() {
         return s
     }
-    var reporter = CorruptionReporter()
+    let reporter = CorruptionReporter()
     reporter.dst_ = dst
-    var reader = Reader(file, reporter, true, 0)
+    let reader = Reader(file, reporter, true, 0)
     var record = Slice()
     var scratch: [UInt8] = Array()
     while reader.ReadRecord(&record, &scratch) {
@@ -57,7 +57,11 @@ private func PrintLogContents(_ env: Env, _ fname: String, _ f: (UInt64, Slice, 
 }
 
 public class WriteBatchItemPrinter: WriteBatch.Handler {
-    public var dst_: WritableFile!
+    public var dst_: WritableFile
+
+    init(_ dst_: WritableFile) {
+        self.dst_ = dst_
+    }
 
     public func Put(_ key: Slice, _ value: Slice) {
         var r = "  put '"
@@ -77,6 +81,27 @@ public class WriteBatchItemPrinter: WriteBatch.Handler {
 }
 
 fileprivate func WriteBatchPrinter(_ pos: UInt64, _ record: Slice, _ dst: inout WritableFile) {
+    var r = "--- offset "
+    AppendNumberTo(&r, pos)
+    r += "; "
+    if record.size() < 12 {
+        r += "log record length "
+        AppendNumberTo(&r, record.size())
+        r += " is too small\n"
+        _ = dst.Append(r)
+        return
+    }
+    let batch = WriteBatch()
+    WriteBatchInternal.SetContents(batch, record)
+    r += "sequence "
+    AppendNumberTo(&r, WriteBatchInternal.Sequence(batch))
+    r += "\n"
+    _ = dst.Append(r)
+    var batch_item_printer: WriteBatchItemPrinter = WriteBatchItemPrinter(dst)
+    let s = batch.Iterate(&batch_item_printer)
+    if !s.ok() {
+        _ = dst.Append("  error: " + s.ToString() + "\n")
+    }
 }
 
 private func DumpLog(_ env: Env, _ fname: String, _ dst: inout WritableFile) -> Status {

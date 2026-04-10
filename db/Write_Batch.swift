@@ -22,9 +22,16 @@ public class WriteBatch {
     }
 
     public func Put(_ key: Slice, _ value: Slice) {
+        WriteBatchInternal.SetCount(self, WriteBatchInternal.Count(self) + 1)
+        rep_.append(ValueType.kTypeValue.rawValue)
+        PutLengthPrefixedSlice(&rep_, key)
+        PutLengthPrefixedSlice(&rep_, value)
     }
 
-    public func Delete() {
+    public func Delete(_ key: Slice) {
+        WriteBatchInternal.SetCount(self, WriteBatchInternal.Count(self) + 1)
+        rep_.append(ValueType.kTypeDeletion.rawValue)
+        PutLengthPrefixedSlice(&rep_, key)
     }
 
     public func Clear() {
@@ -36,17 +43,18 @@ public class WriteBatch {
     }
 
     public func Append(_ source: WriteBatch) {
+        WriteBatchInternal.Append(self, source)
     }
 
-    public func Iterate(_ handler: inout Handler) -> Status {
+    public func Iterate<T: Handler>(_ handler: inout T) -> Status {
         var input = Slice(rep_)
         if input.size() < kHeader {
             return Status.Corruption("malformed WriteBatch (too small)")
         }
 
         input.remove_prefix(kHeader)
-        var key: Slice
-        var value: Slice
+        var key = Slice()
+        var value = Slice()
         var found = 0
         while !input.empty() {
             found += 1
@@ -76,6 +84,26 @@ public class WriteBatch {
     }
 }
 
+public class MemTableInserter: WriteBatch.Handler {
+    public var sequence_: SequenceNumber
+    public var mem_: MemTable
+
+    init(_ sequence_: SequenceNumber, _ mem_: MemTable) {
+        self.sequence_ = sequence_
+        self.mem_ = mem_
+    }
+
+    public func Put(_ key: Slice, _ value: Slice) {
+        mem_.Add(sequence_, ValueType.kTypeValue, key, value)
+        sequence_ += 1
+    }
+
+    public func Delete(_ key: Slice) {
+        mem_.Add(sequence_, ValueType.kTypeValue, key, Slice())
+        sequence_ += 1
+    }
+}
+
 public class WriteBatchInternal {
     public static func Count(_ batch: WriteBatch) -> Int {
         return batch.rep_.withUnsafeBufferPointer {
@@ -83,7 +111,7 @@ public class WriteBatchInternal {
         }
     }
 
-    public static func SetCount(_ batch: inout WriteBatch, _ n: Int) {
+    public static func SetCount(_ batch: WriteBatch, _ n: Int) {
         EncodeFixed32(dst: &batch.rep_, offset: 8, value: UInt32(n))
     }
 
@@ -99,13 +127,23 @@ public class WriteBatchInternal {
 
     public static func ByteSize(_ batch: WriteBatch) -> Int { return batch.rep_.count }
 
-    public static func SetContents(_ batch: inout WriteBatch, _ contents: Slice) {
+    public static func SetContents(_ batch: WriteBatch, _ contents: Slice) {
+        precondition(contents.size() >= kHeader, "contents.size() = \(contents.size()) should be equal or greater than kHeader = \(kHeader)")
+        batch.rep_ = [UInt8](contents.data())
     }
 
-    public static func InsertInto(_ batch: inout WriteBatch, _ memtable: inout MemTable) -> Status {
-        return Status()
+    public static func InsertInto(_ batch: WriteBatch, _ memtable: MemTable) -> Status {
+        var inserter = MemTableInserter(WriteBatchInternal.Sequence(batch), memtable)
+        return batch.Iterate(&inserter)
     }
 
-    public static func Append(_ dst: inout WriteBatch, _ src: WriteBatch) {
+    public static func Append(_ dst: WriteBatch, _ src: WriteBatch) {
+        SetCount(dst, Count(dst) + Count(src))
+        precondition(
+            src.rep_.count >= kHeader,
+            "src.rep_.count = \(src.rep_.count) should be equal or greater than kHeader = \(kHeader)"
+        )
+        let srcWithoutHeaderbuf = src.rep_.suffix(from: kHeader)
+        dst.rep_.append(contentsOf: srcWithoutHeaderbuf)
     }
 }

@@ -238,7 +238,7 @@ public class LookupKey {
 
         start_ = 0
 
-        EncodeVarint32(&space_, usize + 8)
+        EncodeVarint32(dstData: &space_, usize + 8)
         kstart_ = space_.count
 
         space_.append(user_key.data())

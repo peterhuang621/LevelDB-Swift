@@ -7,7 +7,7 @@
 
 import Foundation
 
-public func AppendNumberTo(_ str: inout String, _ num: UInt64) {
+public func AppendNumberTo<T: LosslessStringConvertible>(_ str: inout String, _ num: T) {
     str.append(String(num))
 }
 

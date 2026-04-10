@@ -61,14 +61,24 @@ public func DecodeFixed64(_ ptr: UnsafePointer<UInt8>) -> UInt64 {
 }
 
 // In Swift, not recommend to return a pointer.
-public func EncodeVarint32(_ dst: inout Data, _ v: UInt32) {
+public func EncodeVarint32(dstData: inout Data, _ v: UInt32) {
     let B: UInt32 = 0x80
     var value = v
     while value >= B {
-        dst.append(UInt8((value & 0x7F) | B))
+        dstData.append(UInt8((value & 0x7F) | B))
         value >>= 7
     }
-    dst.append(UInt8(value))
+    dstData.append(UInt8(value))
+}
+
+public func EncodeVarint32(dstArray: inout [UInt8], _ v: UInt32) {
+    let B: UInt32 = 0x80
+    var value = v
+    while value >= B {
+        dstArray.append(UInt8((value & 0x7F) | B))
+        value >>= 7
+    }
+    dstArray.append(UInt8(value))
 }
 
 public func GetVarint32PtrFallback(
@@ -127,4 +137,15 @@ public func GetLengthPrefixedSlice(_ input: inout Slice, _ result: inout Slice) 
         return true
     }
     return false
+}
+
+public func PutVarint32(_ dst: inout [UInt8], _ v: UInt32) {
+    var buf: [UInt8] = []
+    EncodeVarint32(dstArray: &buf, v)
+    dst.append(contentsOf: buf)
+}
+
+public func PutLengthPrefixedSlice(_ dst: inout [UInt8], _ value: Slice) {
+    PutVarint32(&dst, UInt32(value.size()))
+    dst.append(contentsOf: value.data())
 }
