@@ -7,5 +7,8 @@
 
 import Foundation
 
-let kMajorVersion = 1;
-let kMinorVersion = 23;
+let kMajorVersion = 1
+let kMinorVersion = 23
+
+public protocol Snapshot {
+}

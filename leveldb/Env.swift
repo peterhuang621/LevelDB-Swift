@@ -30,19 +30,19 @@ public class Env {
         return RemoveFile(fname)
     }
 
-    public func NewSequentialFile(_ fname: String, _ result: inout SequentialFile?) -> Status {
+    public func NewSequentialFile(_ fname: String, _ result: inout (any SequentialFile)?) -> Status {
         fatalError("must be override")
     }
 
-    public func NewRandomAccessFile(_ fname: String, _ result: inout RandomAccessFile?) -> Status {
+    public func NewRandomAccessFile(_ fname: String, _ result: inout (any RandomAccessFile)?) -> Status {
         fatalError("must be override")
     }
 
-    public func NewWritableFile(_ fname: String, _ result: inout WritableFile?) -> Status {
+    public func NewWritableFile(_ fname: String, _ result: inout (any WritableFile)?) -> Status {
         fatalError("must be override")
     }
 
-    public func NewAppendableFile(_ fname: String, _ result: inout WritableFile?) -> Status {
+    public func NewAppendableFile(_ fname: String, _ result: inout (any WritableFile)?) -> Status {
         return Status.NotSupported(Slice("NewAppendableFile"), Slice(fname))
     }
 
@@ -101,12 +101,12 @@ public class Env {
 
 public func DoWriteStringToFile(_ env: Env, _ data: Slice, _ fname: String, _ should_sync: Bool) -> Status {
     var f: WritableFile?
-    let file = f!
     var s = env.NewAppendableFile(fname, &f)
     if !s.ok() {
         return s
     }
 
+    let file = f!
     s = file.Append(data)
     if s.ok() && should_sync {
         s = file.Sync()
@@ -131,12 +131,12 @@ public func WriteStringToFileSync(_ env: Env, _ data: Slice, _ fname: String) ->
 public func ReadFileToString(_ env: Env, _ fname: String, _ data: inout String) -> Status {
     data.removeAll()
     var f: SequentialFile?
-    let file = f!
     var s = env.NewSequentialFile(fname, &f)
     if !s.ok() {
         return s
     }
 
+    let file = f!
     let kBufferSize = 8192
     let space = Array(repeating: UInt8(0), count: kBufferSize)
     while true {
@@ -177,9 +177,13 @@ public protocol SequentialFile {
 
 public protocol WritableFile {
     func Append(_ data: Slice) -> Status
+
     func Append(_ str: String) -> Status
+
     func Close() -> Status
+
     func Flush() -> Status
+
     func Sync() -> Status
 }
 
@@ -198,11 +202,11 @@ public class EnvWrapper: Env {
         return target_
     }
 
-    override public func NewSequentialFile(_ f: String, _ r: inout SequentialFile?) -> Status {
+    override public func NewSequentialFile(_ f: String, _ r: inout (any SequentialFile)?) -> Status {
         return target_.NewSequentialFile(f, &r)
     }
 
-    override public func NewRandomAccessFile(_ f: String, _ r: inout RandomAccessFile?) -> Status {
+    override public func NewRandomAccessFile(_ f: String, _ r: inout (any RandomAccessFile)?) -> Status {
         return target_.NewRandomAccessFile(f, &r)
     }
 

@@ -30,6 +30,11 @@
 /* End PBXFileReference section */
 
 /* Begin PBXFileSystemSynchronizedRootGroup section */
+		E0229F0A2F8AA37E003658A5 /* table */ = {
+			isa = PBXFileSystemSynchronizedRootGroup;
+			path = table;
+			sourceTree = "<group>";
+		};
 		E02F44972F66FF58003B9FD3 /* db */ = {
 			isa = PBXFileSystemSynchronizedRootGroup;
 			path = db;
@@ -61,6 +66,7 @@
 		E0B043D62EF07549002E4914 = {
 			isa = PBXGroup;
 			children = (
+				E0229F0A2F8AA37E003658A5 /* table */,
 				E063FBD32F78476B00F9E948 /* crc32c_arm.h */,
 				E0B043E92EF07784002E4914 /* leveldb */,
 				E0B043E22EF07549002E4914 /* main.swift */,
@@ -95,6 +101,7 @@
 			dependencies = (
 			);
 			fileSystemSynchronizedGroups = (
+				E0229F0A2F8AA37E003658A5 /* table */,
 				E02F44972F66FF58003B9FD3 /* db */,
 				E063FBBE2F78420600F9E948 /* util */,
 				E0B043E92EF07784002E4914 /* leveldb */,

@@ -39,7 +39,7 @@ private class CorruptionReporter: Reader.Reporter {
     }
 }
 
-private func PrintLogContents(_ env: Env, _ fname: String, _ f: (UInt64, Slice, inout WritableFile) -> Void, _ dst: inout WritableFile) -> Status {
+private func PrintLogContents<T: WritableFile>(_ env: Env, _ fname: String, _ f: (UInt64, Slice, T) -> Void, _ dst: T) -> Status {
     var file: SequentialFile?
     let s = env.NewSequentialFile(fname, &file)
     if !s.ok() {
@@ -51,7 +51,7 @@ private func PrintLogContents(_ env: Env, _ fname: String, _ f: (UInt64, Slice, 
     var record = Slice()
     var scratch: [UInt8] = Array()
     while reader.ReadRecord(&record, &scratch) {
-        f(reader.LastRecordOffset(), record, &dst)
+        f(reader.LastRecordOffset(), record, dst)
     }
     return Status.OK()
 }
@@ -80,7 +80,11 @@ public class WriteBatchItemPrinter: WriteBatch.Handler {
     }
 }
 
-fileprivate func WriteBatchPrinter(_ pos: UInt64, _ record: Slice, _ dst: inout WritableFile) {
+fileprivate func WriteBatchPrinter<T: WritableFile>(
+    _ pos: UInt64,
+    _ record: Slice,
+    _ dst: T
+) {
     var r = "--- offset "
     AppendNumberTo(&r, pos)
     r += "; "
@@ -104,25 +108,57 @@ fileprivate func WriteBatchPrinter(_ pos: UInt64, _ record: Slice, _ dst: inout 
     }
 }
 
-private func DumpLog(_ env: Env, _ fname: String, _ dst: inout WritableFile) -> Status {
-    return PrintLogContents(env, fname, WriteBatchPrinter, &dst)
+private func DumpLog<T: WritableFile>(_ env: Env, _ fname: String, _ dst: T) -> Status {
+    return PrintLogContents(env, fname, WriteBatchPrinter, dst)
 }
 
-fileprivate func VersionEditPrinter(_ pos: UInt64, _ record: Slice, _ dst: inout WritableFile) {
+fileprivate func VersionEditPrinter<T: WritableFile>(_ pos: UInt64, _ record: Slice, _ dst: T) {
+    var r = "--- offset "
+    AppendNumberTo(&r, pos)
+    r += "; "
+    let edit = VersionEdit()
+    let s: Status = edit.DecodeFrom(record)
+    if !s.ok() {
+        r += s.ToString() + "\n"
+    } else {
+        r += edit.DebugString()
+    }
+    _ = dst.Append(r)
 }
 
-private func DumpDescriptor(_ env: Env, _ fname: String, _ dst: inout WritableFile) -> Status {
-    return PrintLogContents(env, fname, VersionEditPrinter, &dst)
+private func DumpDescriptor<T: WritableFile>(_ env: Env, _ fname: String, _ dst: T) -> Status {
+    return PrintLogContents(env, fname, VersionEditPrinter, dst)
 }
 
-private func DumpTable(_ env: Env, _ fname: String, _ dst: inout WritableFile) -> Status {
-    //  var file_size:UInt64=0
-    //  var file:RandomAccessFile
-    //  var table:Table
-    return Status()
+private func DumpTable(_ env: Env, _ fname: String, _ dst: WritableFile) -> Status {
+    var file_size: UInt64 = 0
+    var file: (any RandomAccessFile)?
+    var table = Table()
+    var s: Status = env.GetFileSize(fname, &file_size)
+    if s.ok() {
+        s = env.NewRandomAccessFile(fname, &file)
+    }
+    if s.ok() {
+        s = Table.Open(Options(), &file, file_size, &table)
+    }
+    if !s.ok() {
+        return s
+    }
+
+    var ro = ReadOptions()
+    ro.fill_cache = false
+    var iter: Iterator = table.NewIterator(ro)
+    var r: String
+
+
+
+
+
+  
+    return Status.OK()
 }
 
-public func DumpFile(_ env: Env, _ fname: String, _ dst: inout WritableFile) -> Status {
+public func DumpFile(_ env: Env, _ fname: String, _ dst: WritableFile) -> Status {
     var ftype: FileType = .kTempFile
     if !GuessType(fname, &ftype) {
         return Status.InvalidArgument(Slice(fname + ": unknown file type"))
@@ -130,11 +166,11 @@ public func DumpFile(_ env: Env, _ fname: String, _ dst: inout WritableFile) -> 
 
     switch ftype {
     case .kLogFile:
-        return DumpLog(env, fname, &dst)
+        return DumpLog(env, fname, dst)
     case .kDescriptorFile:
-        return DumpDescriptor(env, fname, &dst)
+        return DumpDescriptor(env, fname, dst)
     case .kTableFile:
-        return DumpTable(env, fname, &dst)
+        return DumpTable(env, fname, dst)
     default:
         break
     }
