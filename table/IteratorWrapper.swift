@@ -40,4 +40,52 @@ public class IteratorWrapper {
             Update()
         }
     }
+
+    public func Valid() -> Bool { return valid_ }
+
+    public func key() -> Slice {
+        precondition(Valid(), "IteratorWrapper is invalid")
+        return key_
+    }
+
+    public func value() -> Slice {
+        precondition(Valid(), "IteratorWrapper is invalid")
+        guard let iter_ = iter_ else { fatalError("iter_ is nil") }
+        return iter_.value()
+    }
+
+    public func status() -> Status {
+        guard let iter_ = iter_ else { fatalError("iter_ is nil") }
+        return iter_.status()
+    }
+
+    public func Next() {
+        guard let iter_ = iter_ else { fatalError("iter_ is nil") }
+        iter_.Next()
+        Update()
+    }
+
+    public func Prev() {
+        guard let iter_ = iter_ else { fatalError("iter_ is nil") }
+        iter_.Prev()
+        Update()
+    }
+
+    public func Seek(_ k: Slice) {
+        guard let iter_ = iter_ else { fatalError("iter_ is nil") }
+        iter_.Seek(k)
+        Update()
+    }
+
+    public func SeekToFirst() {
+        guard let iter_ = iter_ else { fatalError("iter_ is nil") }
+        iter_.SeekToFirst()
+        Update()
+    }
+
+    public func SeekToLast() {
+        guard let iter_ = iter_ else { fatalError("iter_ is nil") }
+        iter_.SeekToLast()
+        Update()
+    }
 }

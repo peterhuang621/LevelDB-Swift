@@ -12,6 +12,10 @@ import Foundation
 // }
 
 public class Env {
+    public static func Default() -> Env {
+        fatalError("must be override")
+    }
+
     public func RemoveDir(_ dirname: String) -> Status {
         return DeleteDir(dirname)
     }
