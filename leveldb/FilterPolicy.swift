@@ -10,7 +10,7 @@ import Foundation
 public protocol FilterPolicy {
     func Name() -> String
 
-    func CreateFilter(_ keys: inout [Slice], _ n: Int, _ dst: inout Data)
+    func CreateFilter(_ keys: inout [Slice], _ n: Int, _ dst: inout [UInt8])
 
     func KeyMayMatch(_ key: Slice, _ filter: Slice) -> Bool
 }

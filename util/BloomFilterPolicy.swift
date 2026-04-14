@@ -34,7 +34,7 @@ public class BloomFilterPolicy: FilterPolicy {
         return "leveldb.BuiltinBloomFilter2"
     }
 
-    public func CreateFilter(_ keys: inout [Slice], _ n: Int, _ dst: inout Data) {
+    public func CreateFilter(_ keys: inout [Slice], _ n: Int, _ dst: inout [UInt8]) {
         var bits: UInt32 = UInt32(n) * bits_per_key_
 
         if bits < 64 {
@@ -45,21 +45,22 @@ public class BloomFilterPolicy: FilterPolicy {
         bits = bytes * 8
 
         let init_size = dst.count
-        dst.reserveCapacity(init_size + Int(bytes))
+        let resize_size = init_size + Int(bytes)
+        if resize_size <= dst.count {
+            dst.removeSubrange(resize_size ..< dst.count)
+        } else {
+            dst.append(contentsOf: repeatElement(0, count: resize_size - dst.count))
+        }
+
         dst.append(UInt8(k_))
 
-        dst.withUnsafeMutableBytes {
-            let ptr = $0.baseAddress!.assumingMemoryBound(to: UInt8.self)
-            let array = ptr.advanced(by: init_size)
-
-            for i in 0 ..< n {
-                var h = BloomHash(keys[i])
-                let delta = ((h >> 17) | (h << 15))
-                for _ in 0 ..< k_ {
-                    let bitpos = h % bits
-                    array[Int(bitpos) / 8] |= (1 << (bitpos % 8))
-                    h &+= delta
-                }
+        for i in 0 ..< n {
+            var h = BloomHash(keys[i])
+            let delta = ((h >> 17) | (h << 15))
+            for _ in 0 ..< k_ {
+                let bitpos = h % bits
+                dst[init_size + Int(bitpos) / 8] |= (1 << (bitpos % 8))
+                h &+= delta
             }
         }
     }

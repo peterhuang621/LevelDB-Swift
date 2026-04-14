@@ -7,10 +7,22 @@
 
 import Foundation
 
+public func PutFixed32(_ buf: inout [UInt8], _ value: UInt32) {
+    buf.append(contentsOf: [UInt8(value & 0xFF), UInt8((value >> 8) & 0xFF),
+                            UInt8((value >> 16) & 0xFF), UInt8((value >> 24) & 0xFF)])
+}
+
 public func PutFixed32(_ dst: inout String, _ value: UInt32) {
     var buf = [UInt8](repeating: 0, count: 4)
     EncodeFixed32(dst: &buf, value: value)
     dst.append(String(bytes: buf, encoding: .isoLatin1)!)
+}
+
+public func PutFixed64(_ buf: inout [UInt8], _ value: UInt64) {
+    buf.append(contentsOf: [UInt8(value & 0xFF), UInt8((value >> 8) & 0xFF),
+                            UInt8((value >> 16) & 0xFF), UInt8((value >> 24) & 0xFF),
+                            UInt8((value >> 32) & 0xFF), UInt8((value >> 40) & 0xFF),
+                            UInt8((value >> 48) & 0xFF), UInt8((value >> 56) & 0xFF)])
 }
 
 public func PutFixed64(_ dst: inout String, _ value: UInt64) {

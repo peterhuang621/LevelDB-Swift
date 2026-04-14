@@ -99,6 +99,12 @@ public struct Slice: Equatable, Comparable {
         return data_.lexicographicallyPrecedes(b.data_) ? -1 : 1
     }
 
+    public func compare(_ b: String) -> Int {
+        let bdata = Data(b.utf8)
+        if data_ == bdata { return 0 }
+        return data_.lexicographicallyPrecedes(bdata) ? -1 : 1
+    }
+
     public static func == (lhs: Self, rhs: Self) -> Bool {
         return lhs.data_ == rhs.data_
     }

@@ -8,6 +8,8 @@
 import Foundation
 
 public class Iterator {
+    // MARK: - Private properties
+
     private class CleanupNode {
         public var function: CleanupFunction?
         public var arg1: UnsafeRawPointer?
@@ -28,6 +30,8 @@ public class Iterator {
     }
 
     private var cleanup_head_ = CleanupNode()
+
+    // MARK: - Public definitions and functions
 
     public typealias CleanupFunction = (UnsafeRawPointer, UnsafeRawPointer) -> Void
 

@@ -8,6 +8,8 @@
 import Foundation
 
 public class IteratorWrapper {
+    // MARK: - Private properties, initializers and functions
+
     private var iter_: Iterator?
     private var valid_: Bool
     private var key_: Slice
@@ -30,6 +32,12 @@ public class IteratorWrapper {
         valid_ = false
         key_ = Slice()
         Set(iter)
+    }
+
+    // MARK: - Public functions
+
+    public func iter() -> Iterator? {
+        return iter_
     }
 
     public func Set(_ iter: Iterator?) {
