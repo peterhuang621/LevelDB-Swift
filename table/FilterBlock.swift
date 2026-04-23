@@ -10,7 +10,7 @@ import Foundation
 private let kFilterBaseLg = 11
 private let kFilterBase = (1 << kFilterBaseLg)
 
-public class FiterBlockBuilder {
+public class FilterBlockBuilder {
     // MARK: - Private properties, initializers and functions
 
     private var policy_: (any FilterPolicy)?

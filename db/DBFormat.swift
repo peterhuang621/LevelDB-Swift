@@ -157,7 +157,7 @@ public class InternalFilterPolicy: FilterPolicy {
         return user_policy_.Name()
     }
 
-  public func CreateFilter(_ keys: inout [Slice], _ n: Int, _ dst: inout [UInt8]) {
+    public func CreateFilter(_ keys: inout [Slice], _ n: Int, _ dst: inout [UInt8]) {
         for i in 0 ..< n {
             keys[i] = ExtractUserKey(keys[i])
         }

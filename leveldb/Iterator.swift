@@ -79,7 +79,7 @@ public class Iterator {
             cleanup_head_.arg1 = arg1
             cleanup_head_.arg2 = arg2
         } else {
-            var node = CleanupNode()
+            let node = CleanupNode()
             node.function = function
             node.arg1 = arg1
             node.arg2 = arg2

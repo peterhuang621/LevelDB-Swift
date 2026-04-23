@@ -26,7 +26,7 @@ public class BlockHandle {
     }
 
     public func DecodeFrom(_ input: Slice) -> Status {
-        var f = Footer()
+        let f = Footer()
         f.metaindex_handle.offset_ = 2
         fatalError()
     }
