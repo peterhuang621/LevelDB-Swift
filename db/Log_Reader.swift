@@ -209,7 +209,7 @@ public class Reader {
                     }
                 }
                 prospective_record_offset = physical_record_offset
-                scratch = [UInt8](fragment.data())
+                scratch = fragment.ToInt8Array()
                 in_fragmented_record = true
 
             case .kMiddleType:

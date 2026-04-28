@@ -7,16 +7,16 @@
 
 import Foundation
 
-public protocol Comparator {
+public protocol Comparator: AnyObject {
     func Compare(_ a: Slice, _ b: Slice) -> Int
 
-    func Compare(aStr: String, bStr: String) -> Int
+    func Compare(aBytes: [UInt8], bBytes: [UInt8]) -> Int
 
     func Name() -> String
 
-    func FindShortestSeparator(_ start: inout String, _ limit: Slice)
+    func FindShortestSeparator(_ start: inout [UInt8], _ limit: Slice)
 
-    func FindShortSuccessor(_ key: inout String)
+    func FindShortSuccessor(_ key: inout [UInt8])
 }
 
 public final class BytewiseComparatorImpl: Comparator, Sendable {
@@ -26,42 +26,39 @@ public final class BytewiseComparatorImpl: Comparator, Sendable {
         return a.compare(b)
     }
 
-    public func Compare(aStr: String, bStr: String) -> Int {
-        return aStr.lexicographicallyPrecedes(bStr) ? -1 : 1
+    public func Compare(aBytes: [UInt8], bBytes: [UInt8]) -> Int {
+        if aBytes == bBytes { return 0 }
+        return aBytes.lexicographicallyPrecedes(bBytes) ? -1 : 1
     }
 
     public func Name() -> String {
         return "leveldb.BytewiseComparator"
     }
 
-    public func FindShortestSeparator(_ start: inout String, _ limit: Slice) {
-        var startBytes = Array(start.utf8)
-
-        let min_length = min(startBytes.count, limit.size())
+    public func FindShortestSeparator(_ start: inout [UInt8], _ limit: Slice) {
+        let min_length = min(start.count, limit.size())
         var diff_index = 0
 
-        while diff_index < min_length && startBytes[diff_index] == limit[diff_index] {
+        while diff_index < min_length && start[diff_index] == limit[diff_index] {
             diff_index += 1
         }
 
         if diff_index >= min_length {
             // Do not shorten if one string is a prefix of the other
         } else {
-            let diff_byte = startBytes[diff_index]
-            if diff_byte < 0xff && (diff_byte &+ 1 < limit[diff_index]) {
-                startBytes[diff_index] &+= 1
-                startBytes.removeSubrange((diff_index + 1) ..< startBytes.count)
-                start = String(bytes: startBytes, encoding: .isoLatin1)!
-                precondition(Compare(Slice(startBytes), limit) < 0, "fail to generate new shortest separator")
+            let diff_byte = start[diff_index]
+            if diff_byte < 0xFF && (diff_byte &+ 1 < limit[diff_index]) {
+                start[diff_index] &+= 1
+                start.removeSubrange((diff_index + 1) ..< start.count)
+                precondition(Compare(Slice(start), limit) < 0, "fail to generate new shortest separator")
             }
         }
     }
 
-    public func FindShortSuccessor(_ key: inout String) {
-        var bytes = Array(key.utf8)
-        for i in 0 ..< bytes.count {
-            if bytes[i] != 0xff {
-                bytes[i] &+= 1
+    public func FindShortSuccessor(_ key: inout [UInt8]) {
+        for i in 0 ..< key.count {
+            if key[i] != 0xFF {
+                key[i] &+= 1
                 return
             }
         }

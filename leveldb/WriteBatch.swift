@@ -129,7 +129,7 @@ public class WriteBatchInternal {
 
     public static func SetContents(_ batch: WriteBatch, _ contents: Slice) {
         precondition(contents.size() >= kHeader, "contents.size() = \(contents.size()) should be equal or greater than kHeader = \(kHeader)")
-        batch.rep_ = [UInt8](contents.data())
+        batch.rep_ = contents.ToInt8Array()
     }
 
     public static func InsertInto(_ batch: WriteBatch, _ memtable: MemTable) -> Status {

@@ -83,6 +83,10 @@ public struct Slice: Equatable, Comparable {
         return String(data: data_, encoding: .utf8) ?? ""
     }
 
+    public func ToInt8Array() -> [UInt8] {
+        return [UInt8](data_)
+    }
+
     public func starts_with(_ x: Slice) -> Bool {
         return (size() >= x.size()) && (data_.prefix(x.size()) == x.data_)
     }
