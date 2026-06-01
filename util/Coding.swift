@@ -31,9 +31,11 @@ public func PutFixed64(_ dst: inout String, _ value: UInt64) {
     dst.append(String(bytes: buf, encoding: .isoLatin1)!)
 }
 
-public func EncodeFixed32(dst: inout [UInt8], value: UInt32) {
-    dst = [UInt8(value & 0xFF), UInt8((value >> 8) & 0xFF),
-           UInt8((value >> 16) & 0xFF), UInt8((value >> 24) & 0xFF)]
+public func EncodeFixed32(dst: inout [UInt8], value: UInt32, offset: Int = 0) {
+    dst[offset] = UInt8(value & 0xFF)
+    dst[offset + 1] = UInt8((value >> 8) & 0xFF)
+    dst[offset + 2] = UInt8((value >> 16) & 0xFF)
+    dst[offset + 3] = UInt8((value >> 24) & 0xFF)
 }
 
 public func EncodeFixed32(dstData: inout Data, value: UInt32) {
@@ -43,18 +45,15 @@ public func EncodeFixed32(dstData: inout Data, value: UInt32) {
     }
 }
 
-public func EncodeFixed32(dst: inout [UInt8], offset: Int, value: UInt32) {
+public func EncodeFixed64(dst: inout [UInt8], value: UInt64, offset: Int = 0) {
     dst[offset] = UInt8(value & 0xFF)
     dst[offset + 1] = UInt8((value >> 8) & 0xFF)
     dst[offset + 2] = UInt8((value >> 16) & 0xFF)
     dst[offset + 3] = UInt8((value >> 24) & 0xFF)
-}
-
-public func EncodeFixed64(dst: inout [UInt8], value: UInt64) {
-    dst = [UInt8(value & 0xFF), UInt8((value >> 8) & 0xFF),
-           UInt8((value >> 16) & 0xFF), UInt8((value >> 24) & 0xFF),
-           UInt8((value >> 32) & 0xFF), UInt8((value >> 40) & 0xFF),
-           UInt8((value >> 48) & 0xFF), UInt8((value >> 56) & 0xFF)]
+    dst[offset + 4] = UInt8((value >> 32) & 0xFF)
+    dst[offset + 5] = UInt8((value >> 40) & 0xFF)
+    dst[offset + 6] = UInt8((value >> 48) & 0xFF)
+    dst[offset + 7] = UInt8((value >> 56) & 0xFF)
 }
 
 public func EncodeFixed64(dstData: inout Data, value: UInt64) {

@@ -8,7 +8,7 @@
 import Foundation
 
 public class TableBuilder {
-    private struct Rep {
+    private class Rep {
         public var options: Options
         public var index_block_options: Options
         public var file: (any WritableFile)?
@@ -59,10 +59,49 @@ public class TableBuilder {
 
     private func WriteBlock(_ block: BlockBuilder, _ handle: BlockHandle) {
         precondition(ok())
+        let r: Rep = rep_
+        let raw: Slice = block.Finish()
 
+        var block_contents: Slice
+        var type: CompressionType = r.options.compression
+        switch type {
+        case .kNoCompression:
+            block_contents = raw
+
+        case .kSnappyCompression:
+            fallthrough
+        case .kZstdCompression:
+            let compressed: [UInt8] = r.compressed_output
+            if compressed.count < raw.size() - (raw.size() / 8) {
+                block_contents = Slice(compressed)
+            } else {
+                block_contents = raw
+                type = .kNoCompression
+            }
+        }
+        WriteRawBlock(block_contents, type, handle)
+        r.compressed_output.removeAll(keepingCapacity: true)
+        block.Reset()
     }
 
-    private func WriteRawBlock(_ data: Slice, _ type: CompressionType, _ handle: BlockHandle) {
+    private func WriteRawBlock(_ block_contents: Slice, _ type: CompressionType, _ handle: BlockHandle) {
+        let r: Rep = rep_
+        handle.set_offset(r.offset)
+        handle.set_size(UInt64(block_contents.size()))
+        r.status = r.file!.Append(block_contents)
+        if r.status.ok() {
+            var trailer: [UInt8] = Array(repeating: 0, count: kBlockTrailerSize)
+            trailer[0] = type.rawValue
+            var crc: UInt32 = block_contents.data().withUnsafeBytes {
+                Value($0.baseAddress!.assumingMemoryBound(to: UInt8.self), block_contents.size())
+            }
+            crc = Extend(crc, trailer, 1)
+            EncodeFixed32(dst: &trailer, value: Mask(crc), offset: 1)
+            r.status = r.file!.Append(Slice(trailer, kBlockTrailerSize))
+            if r.status.ok() {
+                r.offset += UInt64(block_contents.size() + kBlockTrailerSize)
+            }
+        }
     }
 
     public func ChangeOptions(_ options: Options) -> Status {

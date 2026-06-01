@@ -7,8 +7,8 @@
 
 import Foundation
 
-private let kTableMagicNumber: UInt64 = 0xDB4775248B80FB57
-private let kBlockTrailerSize: Int = 5
+public let kTableMagicNumber: UInt64 = 0xDB4775248B80FB57
+public let kBlockTrailerSize: Int = 5
 
 public class BlockHandle {
     private var offset_: UInt64 = 0

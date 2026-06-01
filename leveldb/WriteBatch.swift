@@ -112,7 +112,7 @@ public class WriteBatchInternal {
     }
 
     public static func SetCount(_ batch: WriteBatch, _ n: Int) {
-        EncodeFixed32(dst: &batch.rep_, offset: 8, value: UInt32(n))
+        EncodeFixed32(dst: &batch.rep_, value: UInt32(n), offset: 8)
     }
 
     public static func Sequence(_ batch: WriteBatch) -> SequenceNumber {
