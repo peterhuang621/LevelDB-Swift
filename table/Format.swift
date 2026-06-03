@@ -23,12 +23,19 @@ public class BlockHandle {
     public func set_size(_ size: UInt64) { size_ = size }
 
     public func EncodeTo(_ dst: inout [UInt8]) {
+        precondition(offset_ != 0)
+        precondition(size_ != 0)
+        PutVarint64(&dst, offset_)
+        PutVarint64(&dst, size_)
     }
 
     public func DecodeFrom(_ input: Slice) -> Status {
-        let f = Footer()
-        f.metaindex_handle.offset_ = 2
-        fatalError()
+        var inp = input
+        if GetVarint64(&inp, &offset_) && GetVarint64(&inp, &size_) {
+            return Status.OK()
+        } else {
+            return Status.Corruption("bad block handle")
+        }
     }
 }
 

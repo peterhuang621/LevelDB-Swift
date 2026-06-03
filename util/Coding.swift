@@ -92,6 +92,16 @@ public func EncodeVarint32(dstArray: inout [UInt8], _ v: UInt32) {
     dstArray.append(UInt8(value))
 }
 
+public func EncodeVarint64(dstArray: inout [UInt8], _ v: UInt64) {
+    let B: UInt64 = 0x80
+    var value = v
+    while value >= B {
+        dstArray.append(UInt8((value & 0x7F) | B))
+        value >>= 7
+    }
+    dstArray.append(UInt8(value))
+}
+
 public func GetVarint32PtrFallback(
     _ p: UnsafePointer<UInt8>,
     _ limit: UnsafePointer<UInt8>,
@@ -129,11 +139,46 @@ public func GetVarint32Ptr(
     return GetVarint32PtrFallback(p, limit, &value)
 }
 
+public func GetVarint64Ptr(
+    _ ptr: UnsafePointer<UInt8>,
+    _ limit: UnsafePointer<UInt8>,
+    _ value: inout UInt64) -> UnsafePointer<UInt8>? {
+    var result: UInt64 = 0
+    var shift: UInt32 = 0
+    var p: UnsafePointer<UInt8> = ptr
+    var byte: UInt64 = 0
+
+    while shift <= 63 && p < limit {
+        byte = UInt64(p.pointee)
+        p = p.advanced(by: 1)
+        if (byte & 0x80) != 0 {
+            result |= ((byte & 127) << shift)
+        } else {
+            result |= (byte << shift)
+            value = result
+            return p
+        }
+        shift += 7
+    }
+    return nil
+}
+
 public func GetVarint32(_ input: inout Slice, _ value: inout UInt32) -> Bool {
     return input.data().withUnsafeBytes {
         let p = $0.baseAddress!.assumingMemoryBound(to: UInt8.self)
         let limit = p.advanced(by: input.size())
         let q = GetVarint32Ptr(p, limit, &value)
+        guard let q = q else { return false }
+        input = Slice(q, limit - q)
+        return true
+    }
+}
+
+public func GetVarint64(_ input: inout Slice, _ value: inout UInt64) -> Bool {
+    return input.data().withUnsafeBytes {
+        let p = $0.baseAddress!.assumingMemoryBound(to: UInt8.self)
+        let limit = p.advanced(by: input.size())
+        let q = GetVarint64Ptr(p, limit, &value)
         guard let q = q else { return false }
         input = Slice(q, limit - q)
         return true
@@ -153,6 +198,12 @@ public func GetLengthPrefixedSlice(_ input: inout Slice, _ result: inout Slice) 
 public func PutVarint32(_ dst: inout [UInt8], _ v: UInt32) {
     var buf: [UInt8] = []
     EncodeVarint32(dstArray: &buf, v)
+    dst.append(contentsOf: buf)
+}
+
+public func PutVarint64(_ dst: inout [UInt8], _ v: UInt64) {
+    var buf: [UInt8] = []
+    EncodeVarint64(dstArray: &buf, v)
     dst.append(contentsOf: buf)
 }
 

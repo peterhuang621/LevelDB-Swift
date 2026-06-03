@@ -169,15 +169,65 @@ public class TableBuilder {
     public func status() -> Status {
         return rep_.status
     }
-//
-//    public func Finish() -> Status {
-//    }
-//
-//    public func Abandon() {}
-//
-//    public func NumEntries() -> UInt64 {
-//    }
-//
-//    public func FileSize() -> UInt64 {
-//    }
+
+    public func Finish() -> Status {
+        let r: Rep = rep_
+        Flush()
+        precondition(!r.closed, "r.close should be false")
+        r.closed = true
+
+        let filter_block_handle: BlockHandle = BlockHandle()
+        let metaindex_block_handle: BlockHandle = BlockHandle()
+        let index_block_handle: BlockHandle = BlockHandle()
+
+        if ok() && r.filter_block != nil {
+            WriteRawBlock(r.filter_block!.Finish(), .kNoCompression, filter_block_handle)
+        }
+
+        if ok() {
+            let meta_index_block: BlockBuilder = BlockBuilder(options: r.options)
+            if r.filter_block != nil {
+                let key: Slice = Slice("filter" + (r.options.filter_policy?.Name() ?? ""))
+                var handle_encoding: [UInt8] = []
+                filter_block_handle.EncodeTo(&handle_encoding)
+                meta_index_block.Add(key, Slice(handle_encoding))
+            }
+            WriteBlock(meta_index_block, metaindex_block_handle)
+        }
+
+        if ok() {
+            if r.pending_index_entry {
+                r.options.comparator?.FindShortSuccessor(&r.last_key)
+                var handle_encoding: [UInt8] = []
+                r.pending_handle.EncodeTo(&handle_encoding)
+                r.index_block.Add(Slice(r.last_key), Slice(handle_encoding))
+                r.pending_index_entry = false
+            }
+            WriteBlock(r.index_block, index_block_handle)
+        }
+
+        if ok() {
+            let footer: Footer = Footer()
+            footer.set_metaindex_handle(metaindex_block_handle)
+            footer.set_index_handle(index_block_handle)
+            var footer_encoding: [UInt8] = []
+            footer.EncodeTo(&footer_encoding)
+            r.status = r.file!.Append(Slice(footer_encoding))
+            if r.status.ok() {
+                r.offset += UInt64(footer_encoding.count)
+            }
+        }
+
+        return r.status
+    }
+
+    public func Abandon() {
+        let r: Rep = rep_
+        precondition(!r.closed, "r.closed should be false")
+        r.closed = true
+    }
+
+    public func NumEntries() -> UInt64 { return UInt64(rep_.num_entries) }
+
+    public func FileSize() -> UInt64 { return rep_.offset }
 }
