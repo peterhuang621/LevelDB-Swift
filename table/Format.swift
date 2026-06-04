@@ -52,10 +52,40 @@ public class Footer {
     public func set_index_handle(_ h: BlockHandle) { index_handle_ = h }
 
     public func EncodeTo(_ dst: inout [UInt8]) {
+        let original_size: Int = dst.count
+        metaindex_handle_.EncodeTo(&dst)
+        index_handle_.EncodeTo(&dst)
+        dst.resize(newSize: 2 * BlockHandle.kMaxEncodedLength, repeating: 0)
+        PutFixed32(&dst, UInt32(kTableMagicNumber) & 0xFFFFFFFF)
+        PutFixed32(&dst, UInt32(kTableMagicNumber >> 32))
+        precondition(dst.count == original_size + Footer.kEncodedLength)
     }
 
-    public func DecodeFrom(_ input: Slice) -> Status {
-        fatalError()
+    public func DecodeFrom(_ input: inout Slice) -> Status {
+        if input.size() < Footer.kEncodedLength {
+            return Status.Corruption("not an sstable (footer too short)")
+        }
+
+        var magic: UInt64 = 0
+        input.data().withUnsafeBytes {
+            let ptr = $0.baseAddress!.assumingMemoryBound(to: UInt8.self).advanced(
+                by: Footer.kEncodedLength - 8)
+            let magic_lo: UInt64 = UInt64(DecodeFixed32(ptr))
+            let magic_hi: UInt64 = UInt64(DecodeFixed32(ptr.advanced(by: 4)))
+            magic = ((magic_hi << 32) | magic_lo)
+        }
+        if magic != kTableMagicNumber {
+            return Status.Corruption("not an sstable (bad magic number)")
+        }
+
+        var result: Status = metaindex_handle_.DecodeFrom(input)
+        if result.ok() {
+            result = index_handle_.DecodeFrom(input)
+        }
+        if result.ok() {
+            input = Slice(input.data().suffix(from: Footer.kEncodedLength))
+        }
+        return result
     }
 }
 

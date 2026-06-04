@@ -32,6 +32,10 @@ public struct Slice: Equatable, Comparable {
         data_ = Data(bytes: d, count: d.count)
     }
 
+    public init(_ d: Data) {
+        data_ = d
+    }
+
     public init(_ d: Data, _ n: Int) {
         if d.count == n {
             data_ = d
