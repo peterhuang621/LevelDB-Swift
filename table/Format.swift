@@ -89,10 +89,10 @@ public class Footer {
     }
 }
 
-public struct BlockContents {
-    public var data: Slice
-    public var cachable: Bool
-    public var heap_allocated: Bool
+public class BlockContents {
+    public var data: Slice = Slice()
+    public var cachable: Bool = true
+    public var heap_allocated: Bool = true
 }
 
 public func ReadBlock(
@@ -103,5 +103,50 @@ public func ReadBlock(
     _ handle: BlockHandle,
     _ result: BlockContents
 ) -> Status {
-    fatalError()
+    result.data = Slice()
+    result.cachable = false
+    result.heap_allocated = false
+
+    let n: Int = Int(handle.size)
+    var buf: [UInt8] = Array(repeating: 0, count: n + kBlockTrailerSize)
+    var contents: Slice = Slice()
+    var s: Status = file!.Read(handle.offset, n + kBlockTrailerSize, &contents, &buf)
+    if !s.ok() {
+        return s
+    }
+    if contents.size() != n + kBlockTrailerSize {
+        return Status.Corruption("truncated block read")
+    }
+
+    var data: [UInt8] = [UInt8](contents.data())
+    if options.verify_checksums {
+        var actual: UInt32 = 0
+        let crc: UInt32 = data.withUnsafeBytes {
+            let ptr = $0.baseAddress!.assumingMemoryBound(to: UInt8.self)
+            actual = Value(ptr, n + 1)
+            return Unmask(DecodeFixed32(ptr.advanced(by: n + 1)))
+        }
+
+        if actual != crc {
+            s = Status.Corruption("block checksum mismatch")
+            return s
+        }
+    }
+
+    switch CompressionType(rawValue: data[n]) {
+    case .kNoCompression:
+        if data != buf {
+            result.data = Slice(data, n)
+            result.heap_allocated = false
+            result.cachable = false
+        }
+    case .kSnappyCompression:
+        print("kSnappyCompression way is not implenmented")
+    case .kZstdCompression:
+        print("kZstdCompression way is not implenmented")
+    default:
+        return Status.Corruption("bad block type")
+    }
+
+    return Status.OK()
 }

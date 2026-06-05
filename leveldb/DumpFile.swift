@@ -147,13 +147,46 @@ private func DumpTable(_ env: Env, _ fname: String, _ dst: WritableFile) -> Stat
 
     var ro = ReadOptions()
     ro.fill_cache = false
-    var iter: Iterator = table.NewIterator(ro)
-    var r: String
+    let iter: Iterator = table.NewIterator(ro)
+    var r: String = ""
+    iter.SeekToFirst()
+    var key: ParsedInternalKey = ParsedInternalKey()
+    while iter.Valid() {
+        r.removeAll(keepingCapacity: true)
+        if !ParseInternalKey(iter.key(), &key) {
+            r = "badkey '"
+            AppendEscapedStringTo(&r, iter.key())
+            r += "' => '"
+            AppendEscapedStringTo(&r, iter.value())
+            r += "'\n"
+            _ = dst.Append(r)
+        } else {
+            r = "'"
+            AppendEscapedStringTo(&r, key.user_key)
+            r += "' @ "
+            AppendNumberTo(&r, key.sequence)
+            r += " : "
+            if key.type == .kTypeDeletion {
+                r += "del"
+            } else if key.type == .kTypeValue {
+                r += "val"
+            } else {
+                AppendNumberTo(&r, key.type.rawValue)
+            }
+            r += " => '"
+            AppendEscapedStringTo(&r, iter.value())
+            r += "'\n"
+            _ = dst.Append(r)
+        }
 
+        iter.Next()
+    }
 
+    s = iter.status()
+    if !s.ok() {
+        _ = dst.Append("iterator error: " + s.ToString() + "\n")
+    }
 
-
-  
     return Status.OK()
 }
 

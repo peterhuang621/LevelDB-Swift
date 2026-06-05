@@ -169,7 +169,7 @@ public protocol RandomAccessFile {
         _ offset: UInt64,
         _ n: Int,
         _ result: inout Slice,
-        _ scratch: [UInt8]
+        _ scratch: inout [UInt8]
     ) -> Status
 }
 

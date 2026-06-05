@@ -29,7 +29,7 @@ public class Iterator {
         }
     }
 
-    private var cleanup_head_ = CleanupNode()
+    private var cleanup_head_: CleanupNode = CleanupNode()
 
     // MARK: - Public definitions and functions
 
