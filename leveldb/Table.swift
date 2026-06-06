@@ -40,7 +40,7 @@ public class Table {
     private func ReadFilter(_ filter_handle_value: Slice) {
     }
 
-    public static func Open(_ options: Options, _ file: inout (any RandomAccessFile)?, _ size: UInt64, _ table: inout Table) -> Status {
+    public static func Open(_ options: Options, _ file: inout (any RandomAccessFile)?, _ size: UInt64, _ table: inout Table?) -> Status {
         table = nil
         if size < Footer.kEncodedLength {
             return Status.Corruption("file is too short to be an sstable")
@@ -53,13 +53,13 @@ public class Table {
             return s
         }
 
-        var footer: Footer = Footer()
+        let footer: Footer = Footer()
         s = footer.DecodeFrom(&footer_input)
         if !s.ok() {
             return s
         }
 
-        var index_block_contents: BlockContents = BlockContents()
+        let index_block_contents: BlockContents = BlockContents()
         var opt: ReadOptions = ReadOptions()
         if options.paranoid_checks {
             opt.verify_checksums = true

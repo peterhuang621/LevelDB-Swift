@@ -58,15 +58,6 @@ public struct Slice: Equatable, Comparable {
         return data_.isEmpty
     }
 
-    public func begin() -> UnsafePointer<UInt8>? {
-        return data_.withUnsafeBytes { $0.baseAddress?.assumingMemoryBound(to: UInt8.self) }
-    }
-
-    public func end() -> UnsafePointer<UInt8>? {
-        guard let start = begin() else { return nil }
-        return start.advanced(by: data_.count)
-    }
-
     // MARK: - Slice operations
 
     public subscript(index: Int) -> UInt8 {

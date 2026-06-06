@@ -133,7 +133,7 @@ private func DumpDescriptor<T: WritableFile>(_ env: Env, _ fname: String, _ dst:
 private func DumpTable(_ env: Env, _ fname: String, _ dst: WritableFile) -> Status {
     var file_size: UInt64 = 0
     var file: (any RandomAccessFile)?
-    var table = Table()
+    var table: Table?
     var s: Status = env.GetFileSize(fname, &file_size)
     if s.ok() {
         s = env.NewRandomAccessFile(fname, &file)
@@ -147,7 +147,7 @@ private func DumpTable(_ env: Env, _ fname: String, _ dst: WritableFile) -> Stat
 
     var ro = ReadOptions()
     ro.fill_cache = false
-    let iter: Iterator = table.NewIterator(ro)
+    let iter: Iterator = table!.NewIterator(ro)
     var r: String = ""
     iter.SeekToFirst()
     var key: ParsedInternalKey = ParsedInternalKey()

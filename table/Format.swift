@@ -118,7 +118,7 @@ public func ReadBlock(
         return Status.Corruption("truncated block read")
     }
 
-    var data: [UInt8] = [UInt8](contents.data())
+    let data: [UInt8] = [UInt8](contents.data())
     if options.verify_checksums {
         var actual: UInt32 = 0
         let crc: UInt32 = data.withUnsafeBytes {

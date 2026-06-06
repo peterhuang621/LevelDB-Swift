@@ -30,12 +30,63 @@ public class Block {
             super.init()
         }
 
+        private func NextEntryOffset() -> UInt32 { return 0 }
+
+        private func GetRestartPoint(_ index: UInt32) -> UInt32 {
+            precondition(
+                index < num_restarts_,
+                "index = \(index) should be less than num_restarts_ = \(num_restarts_)"
+            )
+            return data_
+                .withUnsafeBytes {
+                    DecodeFixed32(
+                        $0.baseAddress!.assumingMemoryBound(to: UInt8.self).advanced(by: Int(restarts_ + index * 4))
+                    )
+                }
+        }
+
         private func CorruptionError() {
             current_ = restarts_
             restart_index_ = num_restarts_
             status_ = Status.Corruption("bad entry in block")
             key_.removeAll(keepingCapacity: true)
             value_.clear(keepcapacity: true)
+        }
+
+        private func ParseNextKey() -> Bool {
+            current_ = NextEntryOffset()
+            return data_.withUnsafeBytes {
+                let ptr = $0.baseAddress!.assumingMemoryBound(to: UInt8.self)
+                let p: UnsafePointer<UInt8> = ptr.advanced(by: Int(current_))
+                let limit: UnsafePointer<UInt8> = ptr.advanced(by: Int(restarts_))
+                if p >= limit {
+                    current_ = restarts_
+                    restart_index_ = num_restarts_
+                    return false
+                }
+
+                var shared: UInt32 = 0
+                var non_shared: UInt32 = 0
+                var value_length: UInt32 = 0
+                let tmpp: UnsafePointer<UInt8>? = DecodeEntry(
+                    p,
+                    limit,
+                    &shared,
+                    &non_shared,
+                    &value_length
+                )
+                if tmpp == nil || key_.count < shared {
+                    CorruptionError()
+                    return false
+                }
+                key_.resize(newSize: Int(shared), repeating: 0)
+                key_.append(contentsOf: UnsafeBufferPointer(start: p, count: Int(non_shared)))
+                value_ = Slice(p.advanced(by: Int(non_shared)), Int(value_length))
+                while (restart_index_ + 1 < num_restarts_) && (GetRestartPoint(restart_index_ + 1) < current_) {
+                    restart_index_ += 1
+                }
+                return true
+            }
         }
     }
 
@@ -87,4 +138,42 @@ public class Block {
         }
         return Iter(comparator, data_, restart_offset_, num_restarts)
     }
+}
+
+fileprivate func DecodeEntry(
+    _ ptr: UnsafePointer<UInt8>,
+    _ limit: UnsafePointer<UInt8>,
+    _ shared: inout UInt32,
+    _ nonshared: inout UInt32
+    , _ value_length: inout UInt32) -> UnsafePointer<UInt8>? {
+    if limit - ptr < 3 {
+        return nil
+    }
+    var p: UnsafePointer<UInt8>? = ptr
+    shared = UInt32(p!.pointee)
+    nonshared = UInt32(p!.advanced(by: 1).pointee)
+    value_length = UInt32(p!.advanced(by: 2).pointee)
+    if (shared | nonshared | value_length) < 128 {
+        p = p!.advanced(by: 3)
+    } else {
+        p = GetVarint32Ptr(p!, limit, &shared)
+        if p == nil {
+            return nil
+        }
+
+        p = GetVarint32Ptr(p!, limit, &nonshared)
+        if p == nil {
+            return nil
+        }
+
+        p = GetVarint32Ptr(p!, limit, &value_length)
+        if p == nil {
+            return nil
+        }
+    }
+
+    if UInt32(limit - p!) < (nonshared + value_length) {
+        return nil
+    }
+    return p
 }
