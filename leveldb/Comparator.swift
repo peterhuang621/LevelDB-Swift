@@ -10,13 +10,11 @@ import Foundation
 public protocol Comparator: AnyObject {
     func Compare(_ a: Slice, _ b: Slice) -> Int
 
-    func Compare(aBytes: [UInt8], bBytes: [UInt8]) -> Int
-
     func Name() -> String
 
-    func FindShortestSeparator(_ start: inout [UInt8], _ limit: Slice)
+    func FindShortestSeparator(_ start: inout BytesStorage, _ limit: Slice)
 
-    func FindShortSuccessor(_ key: inout [UInt8])
+    func FindShortSuccessor(_ key: inout BytesStorage)
 }
 
 public final class BytewiseComparatorImpl: Comparator, Sendable {
@@ -26,18 +24,13 @@ public final class BytewiseComparatorImpl: Comparator, Sendable {
         return a.compare(b)
     }
 
-    public func Compare(aBytes: [UInt8], bBytes: [UInt8]) -> Int {
-        if aBytes == bBytes { return 0 }
-        return aBytes.lexicographicallyPrecedes(bBytes) ? -1 : 1
-    }
-
     public func Name() -> String {
         return "leveldb.BytewiseComparator"
     }
 
-    public func FindShortestSeparator(_ start: inout [UInt8], _ limit: Slice) {
-        let min_length = min(start.count, limit.size())
-        var diff_index = 0
+    public func FindShortestSeparator(_ start: inout BytesStorage, _ limit: Slice) {
+        let min_length: Int = min(start.count, limit.size())
+        var diff_index: Int = 0
 
         while diff_index < min_length && start[diff_index] == limit[diff_index] {
             diff_index += 1
@@ -48,14 +41,14 @@ public final class BytewiseComparatorImpl: Comparator, Sendable {
         } else {
             let diff_byte = start[diff_index]
             if diff_byte < 0xFF && (diff_byte &+ 1 < limit[diff_index]) {
-                start[diff_index] &+= 1
-                start.removeSubrange((diff_index + 1) ..< start.count)
+                start[diff_index] += 1
+                start.resize(diff_index + 1)
                 precondition(Compare(Slice(start), limit) < 0, "fail to generate new shortest separator")
             }
         }
     }
 
-    public func FindShortSuccessor(_ key: inout [UInt8]) {
+    public func FindShortSuccessor(_ key: inout BytesStorage) {
         for i in 0 ..< key.count {
             if key[i] != 0xFF {
                 key[i] &+= 1

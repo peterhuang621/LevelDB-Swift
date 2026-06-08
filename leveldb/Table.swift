@@ -46,9 +46,9 @@ public class Table {
             return Status.Corruption("file is too short to be an sstable")
         }
 
-        var footer_space: [UInt8] = Array(repeating: 0, count: Footer.kEncodedLength)
+        var footer_space: BytesStorage = BytesStorage(Footer.kEncodedLength)
         var footer_input: Slice = Slice()
-        var s = file!.Read(size - UInt64(Footer.kEncodedLength), Footer.kEncodedLength, &footer_input, &footer_space)
+        var s = file!.Read(size - UInt64(Footer.kEncodedLength), Footer.kEncodedLength, &footer_input, footer_space)
         if !s.ok() {
             return s
         }

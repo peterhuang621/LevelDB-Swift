@@ -41,14 +41,14 @@ public class Writer {
         precondition(length <= 0xFFFF, "the length = \(length) must fit in two bytes")
         precondition(block_offset_ + kHeaderSize + length <= kBlockSize)
 
-        var buf: [UInt8] = Array(repeating: 0, count: kHeaderSize)
+        var buf: BytesStorage = BytesStorage(kHeaderSize)
         buf[4] = UInt8(length & 0xFF)
         buf[5] = UInt8(length >> 8)
         buf[6] = UInt8(t.rawValue)
 
         var crc = Extend(type_crc_[Int(t.rawValue)], ptr, length)
         crc = Mask(crc)
-        EncodeFixed32(dst: &buf, value: crc)
+        EncodeFixed32(buf, crc)
 
         var s = dest_.Append(Slice(buf, kHeaderSize))
         if s.ok() {
@@ -65,6 +65,7 @@ public class Writer {
 
     public func AddRecord(_ slice: Slice) -> Status {
         var ptr_ind: Int = 0
+        let ptr: UnsafePointer<UInt8> = slice.data()!
         var left: Int = slice.size()
 
         var s = Status()
@@ -74,7 +75,7 @@ public class Writer {
             precondition(leftover >= 0, "leftover = \(leftover) should be equal or greater than 0")
             if leftover < kHeaderSize {
                 precondition(kHeaderSize == 7, "kHeaderSize = \(kHeaderSize) should be equal to 7")
-                let padding = Array(repeating: UInt8(0), count: leftover)
+                let padding: BytesStorage = BytesStorage(leftover)
                 _ = dest_.Append(Slice(padding, leftover))
             }
             block_offset_ = 0
@@ -87,7 +88,7 @@ public class Writer {
             let fragment_length: Int = ((left < avail) ? left : avail)
 
             var type: RecordType
-            let end = (left == fragment_length)
+            let end: Bool = (left == fragment_length)
             if begin && end {
                 type = .kFullType
             } else if begin {
@@ -98,13 +99,7 @@ public class Writer {
                 type = .kMiddleType
             }
 
-            slice.data().withUnsafeBytes {
-                s = EmitPhysicalRecord(
-                    type,
-                    $0.baseAddress!.assumingMemoryBound(to: UInt8.self).advanced(by: ptr_ind),
-                    fragment_length
-                )
-            }
+            s = EmitPhysicalRecord(type, ptr, fragment_length)
 
             ptr_ind += fragment_length
             left -= fragment_length

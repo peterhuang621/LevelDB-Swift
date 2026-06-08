@@ -70,17 +70,17 @@ public func OldInfoLogFileName(_ dbname: String) -> String {
 }
 
 public func ParseFileName(_ filename: String, _ number: inout UInt64, _ type: inout FileType) -> Bool {
-    var rest = Slice(filename)
-    if rest == "CURRENT" {
+    var rest: Slice = Slice(filename)
+    if filename == "CURRENT" {
         number = 0
         type = .kCurrentFile
-    } else if rest == "LOCK" {
+    } else if filename == "LOCK" {
         number = 0
         type = .kDBLockFile
-    } else if rest == "LOG" || rest == "LOG.old" {
+    } else if filename == "LOG" || filename == "LOG.old" {
         number = 0
         type = .kInfoLogFile
-    } else if rest.starts_with("MANIFEST-") {
+    } else if filename.starts(with: "MANIFEST-") {
         rest.remove_prefix(strlen("MANIFEST-"))
         var num: UInt64 = 0
         if !ConsumeDecimalNumber(&rest, &num) {
@@ -113,12 +113,12 @@ public func ParseFileName(_ filename: String, _ number: inout UInt64, _ type: in
 }
 
 public func SetCurrentFile(_ env: Env, _ dbname: String, _ descriptor_number: UInt64) -> Status {
-    let manifest = DescriptorFileName(dbname, descriptor_number)
-    var contents = Slice(manifest)
+    let manifest: String = DescriptorFileName(dbname, descriptor_number)
+    var contents: Slice = Slice(manifest)
     precondition(contents.starts_with(dbname + "/"))
     contents.remove_prefix(dbname.count + 1)
-    let tmp = TempFileName(dbname, descriptor_number)
-    var s = WriteStringToFileSync(env, contents + "\n", tmp)
+    let tmp: String = TempFileName(dbname, descriptor_number)
+    var s: Status = WriteStringToFileSync(env, Slice(contents.ToString() + "\n"), tmp)
     if s.ok() {
         s = env.RenameFile(tmp, CurrentFileName(dbname))
     }

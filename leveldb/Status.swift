@@ -8,7 +8,7 @@
 import Foundation
 
 public struct Status {
-    private let state_: Data?
+    private let state_: UnsafePointer<UInt8>?
 
     private enum Code: UInt8 {
         case kOk = 0
@@ -30,52 +30,27 @@ public struct Status {
         state_ = rhs.state_
     }
 
-    private init(_ state_: Data?) {
-        self.state_ = state_
+    private init(_ state: UnsafePointer<UInt8>?) {
+        state_ = state
     }
 
     private init(_ code: Code, _ msg: Slice, _ msg2: Slice) {
         precondition(code != .kOk, "code = \(code) is not kOk")
-        let len1 = msg.size()
-        let len2 = msg2.size()
-        let size = len1 + (len2 > 0 ? (2 + len2) : 0)
+        let len1: Int = msg.size()
+        let len2: Int = msg2.size()
+        var size: UInt32 = UInt32(len1 + (len2 > 0 ? (2 + len2) : 0))
 
-        var data = Data(capacity: size + 5)
-
-        var length32 = UInt32(size)
-        data.append(Data(bytes: &length32, count: 4))
-        data.append(UInt8(code.rawValue))
-        data.append(msg.data())
-
+        var data: BytesStorage = BytesStorage(Int(size) + 5)
+        memcpy(data.mutablepointer, &size, MemoryLayout<UInt32>.stride)
+        data[4] = code.rawValue
+        memcpy(data.mutablepointer + 5, msg.data(), len1)
         if len2 > 0 {
-            data.append(UInt8(ascii: ":"))
-            data.append(UInt8(ascii: " "))
-            data.append(msg2.data())
+            data[len1 + 5] = UInt8(ascii: ":")
+            data[len1 + 6] = UInt8(ascii: " ")
+            memcpy(data.mutablepointer + len1 + 7, msg2.data(), len2)
         }
 
-        state_ = data
-    }
-
-    private init(_ code: Code, _ msg: String, _ msg2: String) {
-        precondition(code != .kOk, "code = \(code) is not kOk")
-        let len1 = msg.count
-        let len2 = msg2.count
-        let size = len1 + (len2 > 0 ? (2 + len2) : 0)
-
-        var data = Data(capacity: size + 5)
-
-        var length32 = UInt32(size)
-        data.append(Data(bytes: &length32, count: 4))
-        data.append(UInt8(code.rawValue))
-        data.append(contentsOf: msg.utf8)
-
-        if len2 > 0 {
-            data.append(UInt8(ascii: ":"))
-            data.append(UInt8(ascii: " "))
-            data.append(contentsOf: msg2.utf8)
-        }
-
-        state_ = data
+        state_ = data.pointer
     }
 
     // MARK: - Query Methods
@@ -91,7 +66,7 @@ public struct Status {
     }
 
     public static func Corruption(_ msg: String, _ msg2: String = String()) -> Status {
-        return Status(.kCorruption, msg, msg2)
+        return Status(.kCorruption, Slice(msg), Slice(msg2))
     }
 
     public static func NotSupported(_ msg: Slice, _ msg2: Slice = Slice()) -> Status {
@@ -128,12 +103,6 @@ public struct Status {
         return (state_ == nil) ? Code.kOk : Code(rawValue: state_![4])!
     }
 
-    private func length() -> UInt32 {
-        return state_?.withUnsafeBytes {
-            $0.load(as: UInt32.self)
-        } ?? 0
-    }
-
     private static func CopyState(_ state: Data?) -> Data? {
         return state
     }
@@ -158,7 +127,10 @@ public struct Status {
             type = "Unknown code(\(code())): "
         }
 
-        let msgData = state_.subdata(in: 5 ..< (5 + Int(length())))
-        return type + String(bytes: msgData, encoding: .isoLatin1)!
+        var result: BytesStorage = BytesStorage(type)
+        var length: UInt32 = 0
+        memcpy(&length, state_, MemoryLayout<UInt32>.stride)
+        result.append(state_ + 5, Int(length))
+        return result.getStringCopy()
     }
 }

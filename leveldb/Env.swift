@@ -105,7 +105,7 @@ public class Env {
 
 public func DoWriteStringToFile(_ env: Env, _ data: Slice, _ fname: String, _ should_sync: Bool) -> Status {
     var f: WritableFile?
-    var s = env.NewAppendableFile(fname, &f)
+    var s: Status = env.NewAppendableFile(fname, &f)
     if !s.ok() {
         return s
     }
@@ -169,7 +169,7 @@ public protocol RandomAccessFile {
         _ offset: UInt64,
         _ n: Int,
         _ result: inout Slice,
-        _ scratch: inout [UInt8]
+        _ scratch: BytesStorage
     ) -> Status
 }
 
