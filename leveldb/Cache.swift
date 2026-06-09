@@ -45,7 +45,7 @@ public class LRUHandle {
     var in_cache: Bool = false
     var refs: UInt32 = 0
     var hash: UInt32 = 0
-    var key_data: Data = Data()
+    var key_data: [UInt8] = []
 
     // Next is only equal to this if the LRU handle is the list head of an empty list. List heads never have meaningful keys.
     public func key() -> Slice {
@@ -63,8 +63,8 @@ public class HandleTable {
     private var list_: UnsafeMutablePointer<UnsafeMutablePointer<LRUHandle>?>?
 
     private func FindPointer(_ key: Slice, _ hash: UInt32) -> UnsafeMutablePointer<UnsafeMutablePointer<LRUHandle>?> {
-        let index = Int(hash & (length_ - 1))
-        var ptr = list_!.advanced(by: index)
+        let index: Int = Int(hash & (length_ - 1))
+        var ptr: UnsafeMutablePointer<UnsafeMutablePointer<LRUHandle>?> = list_!.advanced(by: index)
         while let p = ptr.pointee {
             if p.pointee.hash != hash || key != p.pointee.key() {
                 ptr = withUnsafeMutablePointer(to: &p.pointee.next_hash) { $0 }
@@ -249,7 +249,7 @@ public class LRUCache {
         e.pointee.hash = hash
         e.pointee.in_cache = false
         e.pointee.refs = 1
-        e.pointee.key_data = key.data()
+        memcpy(&e.pointee.key_data, key.data(), key.size())
 
         if capacity_ > 0 {
             e.pointee.refs += 1
@@ -330,7 +330,7 @@ public class ShardedLRUCache: Cache {
     private var last_id_: UInt64
 
     private static func HashSlice(_ s: Slice) -> UInt32 {
-        return Hash(s.data(), 0)
+        return Hash(s.data()!, s.size(), 0)
     }
 
     private static func Shard(_ hash: UInt32) -> Int {

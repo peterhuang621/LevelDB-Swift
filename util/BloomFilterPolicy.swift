@@ -8,10 +8,7 @@
 import Foundation
 
 fileprivate func BloomHash(_ key: Slice) -> UInt32 {
-    return Hash(
-        key.data().withUnsafeBytes { $0.baseAddress!.assumingMemoryBound(to: UInt8.self) },
-        key.size(),
-        0xBC9F1D34)
+    return Hash(key.data()!, key.size(), 0xBC9F1D34)
 }
 
 public class BloomFilterPolicy: FilterPolicy {
@@ -34,58 +31,51 @@ public class BloomFilterPolicy: FilterPolicy {
         return "leveldb.BuiltinBloomFilter2"
     }
 
-    public func CreateFilter(_ keys: inout [Slice], _ n: Int, _ dst: inout [UInt8]) {
-        var bits: UInt32 = UInt32(n) * bits_per_key_
+    public func CreateFilter(_ keys: inout [Slice], _ n: Int, _ dst: BytesStorage) {
+        var bits: Int = n * Int(bits_per_key_)
 
         if bits < 64 {
             bits = 64
         }
 
-        let bytes = (bits &+ 7) / 8
+        let bytes: Int = (bits &+ 7) / 8
         bits = bytes * 8
 
-        let init_size = dst.count
-        let resize_size = init_size + Int(bytes)
-        if resize_size <= dst.count {
-            dst.removeSubrange(resize_size ..< dst.count)
-        } else {
-            dst.append(contentsOf: repeatElement(0, count: resize_size - dst.count))
-        }
-
+        let init_size: Int = dst.count
+        dst.resize(init_size + bytes)
         dst.append(UInt8(k_))
-
+        var array: UnsafeMutablePointer<UInt8> = dst.mutablepointer + init_size
         for i in 0 ..< n {
-            var h = BloomHash(keys[i])
-            let delta = ((h >> 17) | (h << 15))
+            var h: UInt32 = BloomHash(keys[i])
+            let delta: UInt32 = ((h >> 17) | (h << 15))
             for _ in 0 ..< k_ {
-                let bitpos = h % bits
-                dst[init_size + Int(bitpos) / 8] |= (1 << (bitpos % 8))
+                let bitpos: UInt32 = h % UInt32(bits)
+                array[Int(bitpos) / 8] |= (1 << (bitpos % 8))
                 h &+= delta
             }
         }
     }
 
     public func KeyMayMatch(_ key: Slice, _ bloom_filter: Slice) -> Bool {
-        let len = bloom_filter.size()
+        let len: Int = bloom_filter.size()
         if len < 2 {
             return false
         }
 
-        let array = bloom_filter.data()
-        let bits = UInt32(len - 1) * 8
+        let array: UnsafePointer<UInt8> = bloom_filter.data()!
+        let bits: Int = (len - 1) * 8
 
-        let k = array[len - 1]
+        let k: Int = Int(array[len - 1])
         if k > 30 {
             return true
         }
 
-        var h = BloomHash(key)
-        let delta = ((h >> 17) | (h << 15))
+        var h: UInt32 = BloomHash(key)
+        let delta: UInt32 = ((h >> 17) | (h << 15))
         for _ in 0 ..< k {
-            let bitpos = h % bits
-            let byteIndex = Int(bitpos / 8)
+            let bitpos: UInt32 = h % UInt32(bits)
             let bitMask = UInt8(1 << (bitpos % 8))
-            if (array[byteIndex] & bitMask) == 0 {
+            if (array[Int(bitpos) / 8] & bitMask) == 0 {
                 return false
             }
             h &+= delta

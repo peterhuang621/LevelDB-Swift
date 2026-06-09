@@ -24,15 +24,15 @@ public class TableBuilder {
         public var pending_index_entry: Bool
         public var pending_handle: BlockHandle = BlockHandle()
 
-        public var compressed_output: [UInt8] = []
+        public var compressed_output: BytesStorage = BytesStorage(0)
 
         init(_ opt: Options, _ f: (any WritableFile)?) {
             options = opt
             index_block_options = opt
             file = f
             offset = 0
-            data_block = BlockBuilder(options: opt)
-            index_block = BlockBuilder(options: index_block_options)
+            data_block = BlockBuilder(opt)
+            index_block = BlockBuilder(index_block_options)
             num_entries = 0
             closed = false
             filter_block = (opt.filter_policy == nil ? nil : FilterBlockBuilder(opt.filter_policy))
@@ -75,7 +75,7 @@ public class TableBuilder {
             print("not implement for Zstd Compression")
         }
         WriteRawBlock(block_contents, type, handle)
-        r.compressed_output.removeAll(keepingCapacity: true)
+        r.compressed_output.clear()
         block.Reset()
     }
 
@@ -85,7 +85,7 @@ public class TableBuilder {
         handle.set_size(UInt64(block_contents.size()))
         r.status = r.file!.Append(block_contents)
         if r.status.ok() {
-            var trailer: BytesStorage = BytesStorage(kBlockTrailerSize)
+            let trailer: BytesStorage = BytesStorage(kBlockTrailerSize)
             trailer[0] = type.rawValue
             var crc: UInt32 = Value(block_contents.data()!, block_contents.size())
             crc = Extend(crc, trailer.pointer, 1)
@@ -120,7 +120,7 @@ public class TableBuilder {
         if rep_.pending_index_entry {
             precondition(rep_.data_block.empty(), "rep_.data_block is not empty")
             rep_.options.comparator?.FindShortestSeparator(&rep_.last_key, key)
-            var handle_encoding: BytesStorage = BytesStorage(0)
+            let handle_encoding: BytesStorage = BytesStorage(0)
             rep_.pending_handle.EncodeTo(handle_encoding)
             rep_.index_block.Add(Slice(rep_.last_key), Slice(handle_encoding))
             rep_.pending_index_entry = false
@@ -178,10 +178,10 @@ public class TableBuilder {
         }
 
         if ok() {
-            let meta_index_block: BlockBuilder = BlockBuilder(options: r.options)
+            let meta_index_block: BlockBuilder = BlockBuilder(r.options)
             if r.filter_block != nil {
                 let key: Slice = Slice("filter" + (r.options.filter_policy?.Name() ?? ""))
-                var handle_encoding: BytesStorage = BytesStorage(0)
+                let handle_encoding: BytesStorage = BytesStorage(0)
                 filter_block_handle.EncodeTo(handle_encoding)
                 meta_index_block.Add(key, Slice(handle_encoding))
             }
@@ -191,7 +191,7 @@ public class TableBuilder {
         if ok() {
             if r.pending_index_entry {
                 r.options.comparator?.FindShortSuccessor(&r.last_key)
-                var handle_encoding: BytesStorage = BytesStorage(0)
+                let handle_encoding: BytesStorage = BytesStorage(0)
                 r.pending_handle.EncodeTo(handle_encoding)
                 r.index_block.Add(Slice(r.last_key), Slice(handle_encoding))
                 r.pending_index_entry = false
@@ -203,7 +203,7 @@ public class TableBuilder {
             let footer: Footer = Footer()
             footer.set_metaindex_handle(metaindex_block_handle)
             footer.set_index_handle(index_block_handle)
-            var footer_encoding: BytesStorage = BytesStorage(0)
+            let footer_encoding: BytesStorage = BytesStorage(0)
             footer.EncodeTo(footer_encoding)
             r.status = r.file!.Append(Slice(footer_encoding))
             if r.status.ok() {

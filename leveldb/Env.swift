@@ -141,8 +141,8 @@ public func ReadFileToString(_ env: Env, _ fname: String, _ data: inout String) 
     }
 
     let file = f!
-    let kBufferSize = 8192
-    let space = Array(repeating: UInt8(0), count: kBufferSize)
+    let kBufferSize: Int = 8192
+    let space: BytesStorage = BytesStorage(kBufferSize)
     while true {
         var fragment = Slice()
         s = file.Read(kBufferSize, &fragment, space)
@@ -174,7 +174,7 @@ public protocol RandomAccessFile {
 }
 
 public protocol SequentialFile {
-    func Read(_ n: Int, _ result: inout Slice, _ scratch: [UInt8]) -> Status
+    func Read(_ n: Int, _ result: inout Slice, _ scratch: BytesStorage) -> Status
 
     func Skip(_ n: UInt64) -> Status
 }

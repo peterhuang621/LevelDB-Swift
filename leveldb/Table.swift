@@ -13,7 +13,7 @@ public struct Rep {
     public var file: (any RandomAccessFile)?
     public var cache_id: UInt64
     public var filter: FilterBlockReader
-    public var filter_data: [UInt8]
+    public var filter_data: UnsafePointer<UInt8>?
 
     public var metaindex_handle: BlockHandle
     public var index_block: Block

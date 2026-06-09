@@ -14,9 +14,9 @@ public class FilterBlockBuilder {
     // MARK: - Private properties, initializers and functions
 
     private var policy_: (any FilterPolicy)?
-    private var keys_: [UInt8] = []
+    private var keys_: BytesStorage = BytesStorage(0)
     private var start_: [Int] = []
-    private var result_: [UInt8] = []
+    private var result_: BytesStorage = BytesStorage(0)
     private var tmp_keys_: [Slice] = []
     private var filter_offsets_: [UInt32] = []
 
@@ -32,18 +32,18 @@ public class FilterBlockBuilder {
         }
 
         start_.append(keys_.count)
-
         tmp_keys_.resize(newSize: num_keys, repeating: Slice())
 
         for i in 0 ..< num_keys {
-            tmp_keys_[i] = Slice(Array(keys_[start_[i] ..< start_[i + 1]]))
+            let base: UnsafePointer<UInt8> = keys_.pointer + start_[i]
+            tmp_keys_[i] = Slice(base, start_[i + 1] - start_[i])
         }
 
         filter_offsets_.append(UInt32(result_.count))
-        policy_!.CreateFilter(&tmp_keys_, num_keys, &result_)
+        policy_!.CreateFilter(&tmp_keys_, num_keys, result_)
 
         tmp_keys_.removeAll(keepingCapacity: true)
-        keys_.removeAll(keepingCapacity: true)
+        keys_.clear()
         start_.removeAll(keepingCapacity: true)
     }
 
@@ -63,7 +63,7 @@ public class FilterBlockBuilder {
 
     public func AddKey(_ key: Slice) {
         start_.append(keys_.count)
-        keys_.append(contentsOf: key.data())
+        keys_.append(key)
     }
 
     public func Finish() -> Slice {
@@ -73,10 +73,10 @@ public class FilterBlockBuilder {
 
         let array_offset: UInt32 = UInt32(result_.count)
         for i in 0 ..< filter_offsets_.count {
-            PutFixed32(&result_, filter_offsets_[i])
+            PutFixed32(result_, filter_offsets_[i])
         }
 
-        PutFixed32(&result_, array_offset)
+        PutFixed32(result_, array_offset)
         result_.append(UInt8(kFilterBaseLg))
         return Slice(result_)
     }
@@ -84,15 +84,13 @@ public class FilterBlockBuilder {
 
 public class FilterBlockReader {
     private var policy_: (any FilterPolicy)?
-    private var data_: Data?
-    private var offset_index_: Int
+    private var data_: UnsafePointer<UInt8>!
+    private var offset_: UnsafePointer<UInt8>!
     private var num_: Int
     private var base_lg_: Int
 
     init(_ policy: (any FilterPolicy)?, _ contents: Slice) {
         policy_ = policy
-        data_ = nil
-        offset_index_ = 0
         num_ = 0
         base_lg_ = 0
 
@@ -101,32 +99,27 @@ public class FilterBlockReader {
             return
         }
         base_lg_ = Int(contents[n - 1])
-        let last_word: Int = contents.data().withUnsafeBytes {
-            Int(DecodeFixed32($0.baseAddress!.assumingMemoryBound(to: UInt8.self).advanced(by: n - 5)))
-        }
-        if last_word > n - 5 {
+        let last_word: UInt32 = DecodeFixed32(contents.data()! + n - 5)
+        if Int(last_word) > n - 5 {
             return
         }
-        data_ = contents.data()
-        offset_index_ = last_word
-        num_ = (n - 5 - last_word) / 4
+        data_ = contents.data()!
+        offset_ = data_ + Int(last_word)
+        num_ = (n - 5 - Int(last_word)) / 4
     }
 
     public func KeyMayMatch(_ block_offset: UInt64, _ key: Slice) -> Bool {
-        let index = Int(block_offset >> base_lg_)
+        let index: Int = Int(block_offset >> base_lg_)
         if index < num_ {
-            return withUnsafeBytes(of: data_) {
-                let ptr = $0.baseAddress!.assumingMemoryBound(to: UInt8.self)
-                let start: Int = Int(DecodeFixed32(ptr.advanced(by: offset_index_ + index * 4)))
-                let limit: Int = Int(DecodeFixed32(ptr.advanced(by: offset_index_ + index * 4 + 4)))
-                if start <= limit && limit <= offset_index_ {
-                    let filter: Slice = Slice(ptr.advanced(by: start), limit - start)
-                    return policy_!.KeyMayMatch(key, filter)
-                } else if start == limit {
-                    return false
-                }
-                // * Missing condition.
+            let start: UInt32 = DecodeFixed32(offset_ + index * 4)
+            let limit: UInt32 = DecodeFixed32(offset_ + index * 4 + 4)
+            if start <= limit && limit <= offset_ - data_ {
+                let filter: Slice = Slice(data_ + Int(start), Int(limit - start))
+                return policy_!.KeyMayMatch(key, filter)
+            } else if start == limit {
                 return false
+            } else {
+                return true
             }
         }
         return true

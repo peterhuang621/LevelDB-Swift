@@ -10,16 +10,16 @@ import Foundation
 public func Hash(_ data: UnsafePointer<UInt8>, _ n: Int, _ seed: UInt32) -> UInt32 {
     let m: UInt32 = 0xC6A4A793
     let r: UInt32 = 24
-    let limit = data.advanced(by: n)
-    var ptr = data
+    let limit: UnsafePointer<UInt8> = data.advanced(by: n)
+    var ptr: UnsafePointer<UInt8> = data
     // Use wrapping multiply so overflow follows the hash algorithm.
-    var h = seed ^ (UInt32(n) &* m)
+    var h: UInt32 = seed ^ (UInt32(n) &* m)
 
     while limit - ptr >= 4 {
         let w = DecodeFixed32(ptr)
-        ptr = ptr.advanced(by: 4)
-        h = h &+ w
-        h = h &* m
+        ptr += 4
+        h &+= w
+        h &*= m
         h ^= (h >> 16)
     }
 
@@ -39,11 +39,4 @@ public func Hash(_ data: UnsafePointer<UInt8>, _ n: Int, _ seed: UInt32) -> UInt
     }
 
     return h
-}
-
-public func Hash(_ data: Data, _ seed: UInt32) -> UInt32 {
-    return data.withUnsafeBytes {
-        let ptr = $0.baseAddress!.assumingMemoryBound(to: UInt8.self)
-        return Hash(ptr, data.count, seed)
-    }
 }

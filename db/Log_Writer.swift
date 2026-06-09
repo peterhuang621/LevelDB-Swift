@@ -9,7 +9,7 @@ import Foundation
 
 fileprivate func InitTypeCrc(_ type_crc: UnsafeMutablePointer<UInt32>) {
     for i in 0 ... kMaxRecordType {
-        var t = UInt8(i)
+        var t: UInt8 = UInt8(i)
         type_crc.advanced(by: i).pointee = Value(&t, 1)
     }
 }
@@ -46,7 +46,7 @@ public class Writer {
         buf[5] = UInt8(length >> 8)
         buf[6] = UInt8(t.rawValue)
 
-        var crc = Extend(type_crc_[Int(t.rawValue)], ptr, length)
+        var crc: UInt32 = Extend(type_crc_[Int(t.rawValue)], ptr, length)
         crc = Mask(crc)
         EncodeFixed32(buf, crc)
 
@@ -68,8 +68,8 @@ public class Writer {
         let ptr: UnsafePointer<UInt8> = slice.data()!
         var left: Int = slice.size()
 
-        var s = Status()
-        var begin = true
+        var s: Status = Status()
+        var begin: Bool = true
         repeat {
             let leftover = kBlockSize - block_offset_
             precondition(leftover >= 0, "leftover = \(leftover) should be equal or greater than 0")

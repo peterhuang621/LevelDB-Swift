@@ -9,29 +9,29 @@ import Foundation
 
 public class BlockBuilder {
     private var options_: Options
-    private var buffer_: [UInt8]
+    private var buffer_: BytesStorage
     private var restarts_: [UInt32]
     private var counter_: Int
     private var finished_: Bool
-    private var last_key_: [UInt8]
+    private var last_key_: BytesStorage
 
-    init(options: Options) {
+    init(_ options: Options) {
         options_ = options
         precondition(options.block_restart_interval >= 1, "options.block_restart_interval = \(options.block_restart_interval) should be greater or equal to 1")
         restarts_ = [0]
         counter_ = 0
         finished_ = false
-        buffer_ = []
-        last_key_ = []
+        buffer_.clear()
+        last_key_.clear()
     }
 
     public func Reset() {
-        buffer_.removeAll(keepingCapacity: true)
+        buffer_.clear()
         restarts_.removeAll(keepingCapacity: true)
         restarts_ = [0]
         counter_ = 0
         finished_ = false
-        last_key_.removeAll(keepingCapacity: true)
+        last_key_.clear()
     }
 
     public func Add(_ key: Slice, _ value: Slice) {
@@ -52,24 +52,24 @@ public class BlockBuilder {
 
         let non_shared: Int = key.size() - shared
 
-        PutVarint32(&buffer_, UInt32(shared))
-        PutVarint32(&buffer_, UInt32(non_shared))
-        PutVarint32(&buffer_, UInt32(value.size()))
+        PutVarint32(buffer_, UInt32(shared))
+        PutVarint32(buffer_, UInt32(non_shared))
+        PutVarint32(buffer_, UInt32(value.size()))
 
-        buffer_.append(contentsOf: key.data().subdata(in: shared ..< shared + non_shared))
-        buffer_.append(contentsOf: value.data())
+        buffer_.append(key.data()! + shared, non_shared)
+        buffer_.append(value)
 
-        last_key_.removeSubrange(shared...)
-        last_key_.append(contentsOf: key.data().subdata(in: shared ..< shared + non_shared))
+        last_key_.resize(shared)
+        last_key_.append(key.data()! + shared, non_shared)
         precondition(Slice(last_key_) == key, "last_key_ is not equal to key")
         counter_ += 1
     }
 
     public func Finish() -> Slice {
         for i in 0 ..< restarts_.count {
-            PutFixed32(&buffer_, restarts_[i])
+            PutFixed32(buffer_, restarts_[i])
         }
-        PutFixed32(&buffer_, UInt32(restarts_.count))
+        PutFixed32(buffer_, UInt32(restarts_.count))
         finished_ = true
         return Slice(buffer_)
     }

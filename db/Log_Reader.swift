@@ -17,7 +17,7 @@ public class Reader {
     private let file_: SequentialFile?
     private let reporter_: Reporter?
     private var checksum_: Bool
-    private let backing_store_: [UInt8] = Array(repeating: 0, count: kBlockSize)
+    private let backing_store_: BytesStorage = BytesStorage(kBlockSize)
     private var buffer_: Slice = Slice()
     private var eof_: Bool = false
 
@@ -69,11 +69,11 @@ public class Reader {
         while true {
             if buffer_.size() < kHeaderSize {
                 if !eof_ {
-                    buffer_.clear(keepcapacity: true)
-                    let status = file_!.Read(kBlockSize, &buffer_, backing_store_)
+                    buffer_.clear()
+                    let status: Status = file_!.Read(kBlockSize, &buffer_, backing_store_)
                     end_of_buffer_offset_ += UInt64(buffer_.size())
                     if !status.ok() {
-                        buffer_.clear(keepcapacity: true)
+                        buffer_.clear()
                         ReportDrop(UInt64(kBlockSize), status)
                         eof_ = true
                         return UInt(ReaderRecordType.kEof.rawValue)
@@ -82,12 +82,12 @@ public class Reader {
                     }
                     continue
                 } else {
-                    buffer_.clear(keepcapacity: true)
+                    buffer_.clear()
                     return UInt(ReaderRecordType.kEof.rawValue)
                 }
             }
 
-            let header = buffer_.data()
+            let header: UnsafePointer<UInt8> = buffer_.data()!
             let a: UInt32 = UInt32(header[4]) & 0xFF
             let b: UInt32 = UInt32(header[5]) & 0xFF
             let type: UInt = UInt(header[6])
@@ -95,7 +95,7 @@ public class Reader {
 
             if UInt32(kHeaderSize) + length > UInt32(buffer_.size()) {
                 let drop_size = buffer_.size()
-                buffer_.clear(keepcapacity: true)
+                buffer_.clear()
                 if !eof_ {
                     ReportCorruption(UInt64(drop_size), "bad record length")
                     return UInt(ReaderRecordType.kBadRecord.rawValue)
@@ -104,22 +104,16 @@ public class Reader {
             }
 
             if type == RecordType.kZeroType.rawValue && length == 0 {
-                buffer_.clear(keepcapacity: true)
+                buffer_.clear()
                 return UInt(ReaderRecordType.kBadRecord.rawValue)
             }
 
             if checksum_ {
-                var expected_crc: UInt32 = 0
-                var actual_crc: UInt32 = 0
-                header.withUnsafeBytes {
-                    let pointer = $0.baseAddress!.assumingMemoryBound(to: UInt8.self)
-                    expected_crc = Unmask(DecodeFixed32(pointer))
-                    actual_crc = Value(pointer.advanced(by: 6), Int(1 + length))
-                }
-
+                let expected_crc: UInt32 = Unmask(DecodeFixed32(header))
+                let actual_crc: UInt32 = Value(header + 6, Int(1 + length))
                 if actual_crc != expected_crc {
                     let drop_size = buffer_.size()
-                    buffer_.clear(keepcapacity: true)
+                    buffer_.clear()
                     ReportCorruption(UInt64(drop_size), "checksum mismatch")
                     return UInt(ReaderRecordType.kBadRecord.rawValue)
                 }
@@ -136,7 +130,7 @@ public class Reader {
                 return UInt(ReaderRecordType.kBadRecord.rawValue)
             }
 
-            result = Slice(header.suffix(header.count - kHeaderSize), Int(length))
+            result = Slice(header + kHeaderSize, Int(length))
             return type
         }
     }
@@ -157,15 +151,15 @@ public class Reader {
 
     // MARK: - Public functions
 
-    public func ReadRecord(_ record: inout Slice, _ scratch: inout [UInt8]) -> Bool {
+    public func ReadRecord(_ record: inout Slice, _ scratch: inout BytesStorage) -> Bool {
         if last_record_offset_ < initial_offset_ {
             if !SkipToInitialBlock() {
                 return false
             }
         }
 
-        scratch.removeAll(keepingCapacity: true)
-        record.clear(keepcapacity: true)
+        scratch.clear()
+        record.clear()
 
         var in_fragmented_record = false
         var prospective_record_offset: UInt64 = 0
@@ -197,7 +191,7 @@ public class Reader {
                     }
                 }
                 prospective_record_offset = physical_record_offset
-                scratch.removeAll(keepingCapacity: true)
+                scratch.clear()
                 record = fragment
                 last_record_offset_ = prospective_record_offset
                 return true
@@ -209,21 +203,21 @@ public class Reader {
                     }
                 }
                 prospective_record_offset = physical_record_offset
-                scratch = fragment.ToInt8Array()
+                scratch = BytesStorage(fragment)
                 in_fragmented_record = true
 
             case .kMiddleType:
                 if !in_fragmented_record {
                     ReportCorruption(UInt64(scratch.count), "missing start of fragmented record(1)")
                 } else {
-                    scratch.append(contentsOf: fragment.data())
+                    scratch.append(fragment)
                 }
 
             case .kLastType:
                 if !in_fragmented_record {
                     ReportCorruption(UInt64(scratch.count), "missing start of fragmented record(2)")
                 } else {
-                    scratch.append(contentsOf: fragment.data())
+                    scratch.append(fragment)
                     record = Slice(scratch)
                     last_record_offset_ = prospective_record_offset
                     return true
@@ -231,7 +225,7 @@ public class Reader {
 
             case RecordType(rawValue: ReaderRecordType.kEof.rawValue):
                 if in_fragmented_record {
-                    scratch.removeAll(keepingCapacity: true)
+                    scratch.clear()
                 }
                 return false
 
@@ -239,14 +233,14 @@ public class Reader {
                 if in_fragmented_record {
                     ReportCorruption(UInt64(scratch.count), "error in middle of record")
                     in_fragmented_record = false
-                    scratch.removeAll(keepingCapacity: true)
+                    scratch.clear()
                 }
 
             default:
                 let buf = String(format: "unknown record type %u", UInt(record_type.rawValue))
                 ReportCorruption(UInt64(fragment.size()) + UInt64(in_fragmented_record ? scratch.count : 0), buf)
                 in_fragmented_record = false
-                scratch.removeAll(keepingCapacity: true)
+                scratch.clear()
             }
         }
         return false

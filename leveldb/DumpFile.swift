@@ -39,7 +39,7 @@ private class CorruptionReporter: Reader.Reporter {
     }
 }
 
-private func PrintLogContents<T: WritableFile>(_ env: Env, _ fname: String, _ f: (UInt64, Slice, T) -> Void, _ dst: T) -> Status {
+private func PrintLogContents(_ env: Env, _ fname: String, _ f: (UInt64, Slice, WritableFile) -> Void, _ dst: WritableFile) -> Status {
     var file: SequentialFile?
     let s = env.NewSequentialFile(fname, &file)
     if !s.ok() {
@@ -49,7 +49,7 @@ private func PrintLogContents<T: WritableFile>(_ env: Env, _ fname: String, _ f:
     reporter.dst_ = dst
     let reader = Reader(file, reporter, true, 0)
     var record = Slice()
-    var scratch: [UInt8] = Array()
+    var scratch: BytesStorage = BytesStorage(0)
     while reader.ReadRecord(&record, &scratch) {
         f(reader.LastRecordOffset(), record, dst)
     }
@@ -80,11 +80,7 @@ public class WriteBatchItemPrinter: WriteBatch.Handler {
     }
 }
 
-fileprivate func WriteBatchPrinter<T: WritableFile>(
-    _ pos: UInt64,
-    _ record: Slice,
-    _ dst: T
-) {
+fileprivate func WriteBatchPrinter(_ pos: UInt64, _ record: Slice, _ dst: WritableFile) {
     var r = "--- offset "
     AppendNumberTo(&r, pos)
     r += "; "
@@ -108,11 +104,11 @@ fileprivate func WriteBatchPrinter<T: WritableFile>(
     }
 }
 
-private func DumpLog<T: WritableFile>(_ env: Env, _ fname: String, _ dst: T) -> Status {
+private func DumpLog(_ env: Env, _ fname: String, _ dst: WritableFile) -> Status {
     return PrintLogContents(env, fname, WriteBatchPrinter, dst)
 }
 
-fileprivate func VersionEditPrinter<T: WritableFile>(_ pos: UInt64, _ record: Slice, _ dst: T) {
+fileprivate func VersionEditPrinter(_ pos: UInt64, _ record: Slice, _ dst: WritableFile) {
     var r = "--- offset "
     AppendNumberTo(&r, pos)
     r += "; "
@@ -126,7 +122,7 @@ fileprivate func VersionEditPrinter<T: WritableFile>(_ pos: UInt64, _ record: Sl
     _ = dst.Append(r)
 }
 
-private func DumpDescriptor<T: WritableFile>(_ env: Env, _ fname: String, _ dst: T) -> Status {
+private func DumpDescriptor(_ env: Env, _ fname: String, _ dst: WritableFile) -> Status {
     return PrintLogContents(env, fname, VersionEditPrinter, dst)
 }
 

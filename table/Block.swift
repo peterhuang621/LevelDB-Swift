@@ -10,16 +10,21 @@ import Foundation
 public class Block {
     private class Iter: Iterator {
         private let comparator_: any Comparator
-        private let data_: [UInt8]
+        private let data_: UnsafePointer<UInt8>
         var restarts_: UInt32
         var num_restarts_: UInt32
         var current_: UInt32
         var restart_index_: UInt32
-        var key_: [UInt8] = []
+        var key_: BytesStorage = BytesStorage(0)
         var value_: Slice = Slice()
         var status_: Status = Status()
 
-        init(_ comparator: any Comparator, _ data: [UInt8], _ restarts: UInt32, _ num_restarts: UInt32) {
+        init(
+            _ comparator: any Comparator,
+            _ data: UnsafePointer<UInt8>,
+            _ restarts: UInt32,
+            _ num_restarts: UInt32
+        ) {
             precondition(num_restarts > 0, "num_restarts = \(num_restarts) should be greater than 0")
             comparator_ = comparator
             data_ = data
@@ -30,81 +35,127 @@ public class Block {
             super.init()
         }
 
-        private func NextEntryOffset() -> UInt32 { return 0 }
+        private func Compare(_ a: Slice, _ b: Slice) -> Int { return comparator_.Compare(a, b) }
+
+        private func NextEntryOffset() -> UInt32 {
+            return UInt32(value_.data()!.advanced(by: value_.size()) - data_)
+        }
 
         private func GetRestartPoint(_ index: UInt32) -> UInt32 {
             precondition(
                 index < num_restarts_,
                 "index = \(index) should be less than num_restarts_ = \(num_restarts_)"
             )
-            return data_
-                .withUnsafeBytes {
-                    DecodeFixed32(
-                        $0.baseAddress!.assumingMemoryBound(to: UInt8.self).advanced(by: Int(restarts_ + index * 4))
-                    )
-                }
+            return DecodeFixed32(data_ + Int(restarts_) + Int(index) * MemoryLayout<UInt32>.stride)
+        }
+
+        private func SeekToRestartPoint(_ index: UInt32) {
+            key_.clear()
+            restart_index_ = index
+            value_ = Slice(data_ + Int(GetRestartPoint(index)), 0)
         }
 
         private func CorruptionError() {
             current_ = restarts_
             restart_index_ = num_restarts_
             status_ = Status.Corruption("bad entry in block")
-            key_.removeAll(keepingCapacity: true)
-            value_.clear(keepcapacity: true)
+            key_.clear()
+            value_.clear()
         }
 
         private func ParseNextKey() -> Bool {
             current_ = NextEntryOffset()
-            return data_.withUnsafeBytes {
-                let ptr = $0.baseAddress!.assumingMemoryBound(to: UInt8.self)
-                let p: UnsafePointer<UInt8> = ptr.advanced(by: Int(current_))
-                let limit: UnsafePointer<UInt8> = ptr.advanced(by: Int(restarts_))
-                if p >= limit {
+            let p: UnsafePointer<UInt8> = data_.advanced(by: Int(current_))
+            let limit: UnsafePointer<UInt8> = data_.advanced(by: Int(restarts_))
+            if p >= limit {
+                current_ = restarts_
+                restart_index_ = num_restarts_
+                return false
+            }
+
+            var shared: UInt32 = 0
+            var non_shared: UInt32 = 0
+            var value_length: UInt32 = 0
+            let tmpp: UnsafePointer<UInt8>? = DecodeEntry(
+                p,
+                limit,
+                &shared,
+                &non_shared,
+                &value_length
+            )
+            if tmpp == nil || key_.count < shared {
+                CorruptionError()
+                return false
+            }
+            key_.resize(Int(shared))
+            key_.append(p, Int(non_shared))
+            value_ = Slice(p.advanced(by: Int(non_shared)), Int(value_length))
+            while (restart_index_ + 1 < num_restarts_) && (GetRestartPoint(restart_index_ + 1) < current_) {
+                restart_index_ += 1
+            }
+            return true
+        }
+
+        override public func Valid() -> Bool { return current_ < restarts_ }
+
+        override public func status() -> Status { return status_ }
+
+        override public func key() -> Slice {
+            precondition(Valid(), "current_ = \(current_) should be less than restarts_ = \(restarts_)")
+            return Slice(key_)
+        }
+
+        override public func value() -> Slice {
+            precondition(Valid(), "current_ = \(current_) should be less than restarts_ = \(restarts_)")
+            return value_
+        }
+
+        override public func Next() {
+            precondition(Valid(), "current_ = \(current_) should be less than restarts_ = \(restarts_)")
+            _ = ParseNextKey()
+        }
+
+        override public func Prev() {
+            precondition(Valid(), "current_ = \(current_) should be less than restarts_ = \(restarts_)")
+
+            let original: UInt32 = current_
+            while GetRestartPoint(restart_index_) >= original {
+                if restart_index_ == 0 {
                     current_ = restarts_
                     restart_index_ = num_restarts_
-                    return false
+                    return
                 }
-
-                var shared: UInt32 = 0
-                var non_shared: UInt32 = 0
-                var value_length: UInt32 = 0
-                let tmpp: UnsafePointer<UInt8>? = DecodeEntry(
-                    p,
-                    limit,
-                    &shared,
-                    &non_shared,
-                    &value_length
-                )
-                if tmpp == nil || key_.count < shared {
-                    CorruptionError()
-                    return false
-                }
-                key_.resize(newSize: Int(shared), repeating: 0)
-                key_.append(contentsOf: UnsafeBufferPointer(start: p, count: Int(non_shared)))
-                value_ = Slice(p.advanced(by: Int(non_shared)), Int(value_length))
-                while (restart_index_ + 1 < num_restarts_) && (GetRestartPoint(restart_index_ + 1) < current_) {
-                    restart_index_ += 1
-                }
-                return true
+                restart_index_ -= 1
             }
+
+            SeekToRestartPoint(restart_index_)
+            while ParseNextKey() && (NextEntryOffset() < original) {}
+        }
+
+        override public func SeekToFirst() {
+            SeekToRestartPoint(0)
+            _ = ParseNextKey()
+        }
+
+        override public func SeekToLast() {
+            SeekToRestartPoint(num_restarts_ - 1)
+            while ParseNextKey() && (NextEntryOffset() < restarts_) {}
         }
     }
 
-    private var data_: [UInt8]
+    private var data_: UnsafePointer<UInt8>
     private var size_: Int
     private var restart_offset_: UInt32 = 0
     private var owned_: Bool
 
     private func NumRestarts() -> UInt32 {
-        precondition(size_ >= 4, "size_ = \(size_) should be greater or equal to 4 (UInt32 size)")
-        return data_.withUnsafeBytes {
-            let ptr = $0.baseAddress!.assumingMemoryBound(to: UInt8.self)
-            return DecodeFixed32(ptr.advanced(by: size_ - 4))
-        }
+        let uint32Stride: Int = MemoryLayout<UInt32>.stride
+        precondition(size_ >= uint32Stride, "size_ = \(size_) should be greater or equal to 4 (UInt32 size)")
+        return DecodeFixed32(data_ + size_ - uint32Stride)
     }
 
     init(_ contents: BlockContents) {
-        data_ = contents.data.ToInt8Array()
+        data_ = contents.data.data()!
         size_ = contents.data.size()
         owned_ = contents.heap_allocated
 
@@ -117,12 +168,6 @@ public class Block {
             } else {
                 restart_offset_ = UInt32(size_) - (1 + NumRestarts()) * 4
             }
-        }
-    }
-
-    deinit {
-        if owned_ {
-            data_.removeAll(keepingCapacity: false)
         }
     }
 
