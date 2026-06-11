@@ -13,7 +13,7 @@ public func PutFixed32(_ buf: BytesStorage, _ value: UInt32) {
 }
 
 public func PutFixed32(_ dst: inout String, _ value: UInt32) {
-    var buf = BytesStorage(4)
+    let buf = BytesStorage(4)
     EncodeFixed32(buf, value)
     dst.append(String(bytes: buf.getUInt8ArrayCopy(), encoding: .isoLatin1)!)
 }
@@ -26,7 +26,7 @@ public func PutFixed64(_ buf: BytesStorage, _ value: UInt64) {
 }
 
 public func PutFixed64(_ dst: inout String, _ value: UInt64) {
-    var buf = BytesStorage(8)
+    let buf = BytesStorage(8)
     EncodeFixed64(buf, value)
     dst.append(String(bytes: buf.getUInt8ArrayCopy(), encoding: .isoLatin1)!)
 }
@@ -167,13 +167,13 @@ public func GetLengthPrefixedSlice(_ input: inout Slice, _ result: inout Slice) 
 }
 
 public func PutVarint32(_ dst: BytesStorage, _ v: UInt32) {
-    var buf = BytesStorage(0)
+    let buf = BytesStorage(0)
     EncodeVarint32(buf, v)
     dst.append(buf)
 }
 
 public func PutVarint64(_ dst: BytesStorage, _ v: UInt64) {
-    var buf = BytesStorage(0)
+    let buf = BytesStorage(0)
     EncodeVarint64(buf, v)
     dst.append(buf)
 }

@@ -40,7 +40,7 @@ public struct Status {
         let len2: Int = msg2.size()
         var size: UInt32 = UInt32(len1 + (len2 > 0 ? (2 + len2) : 0))
 
-        var data: BytesStorage = BytesStorage(Int(size) + 5)
+        let data: BytesStorage = BytesStorage(Int(size) + 5)
         memcpy(data.mutablepointer, &size, MemoryLayout<UInt32>.stride)
         data[4] = code.rawValue
         memcpy(data.mutablepointer + 5, msg.data(), len1)
@@ -127,7 +127,7 @@ public struct Status {
             type = "Unknown code(\(code())): "
         }
 
-        var result: BytesStorage = BytesStorage(type)
+        let result: BytesStorage = BytesStorage(type)
         var length: UInt32 = 0
         memcpy(&length, state_, MemoryLayout<UInt32>.stride)
         result.append(state_ + 5, Int(length))

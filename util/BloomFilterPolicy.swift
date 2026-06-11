@@ -44,7 +44,7 @@ public class BloomFilterPolicy: FilterPolicy {
         let init_size: Int = dst.count
         dst.resize(init_size + bytes)
         dst.append(UInt8(k_))
-        var array: UnsafeMutablePointer<UInt8> = dst.mutablepointer + init_size
+        let array: UnsafeMutablePointer<UInt8> = dst.mutablepointer + init_size
         for i in 0 ..< n {
             var h: UInt32 = BloomHash(keys[i])
             let delta: UInt32 = ((h >> 17) | (h << 15))

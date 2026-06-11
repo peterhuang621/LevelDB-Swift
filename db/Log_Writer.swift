@@ -41,7 +41,7 @@ public class Writer {
         precondition(length <= 0xFFFF, "the length = \(length) must fit in two bytes")
         precondition(block_offset_ + kHeaderSize + length <= kBlockSize)
 
-        var buf: BytesStorage = BytesStorage(kHeaderSize)
+        let buf: BytesStorage = BytesStorage(kHeaderSize)
         buf[4] = UInt8(length & 0xFF)
         buf[5] = UInt8(length >> 8)
         buf[6] = UInt8(t.rawValue)

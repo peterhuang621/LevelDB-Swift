@@ -114,12 +114,12 @@ public class TableBuilder {
             return
         }
         if rep_.num_entries > 0 {
-            precondition(rep_.options.comparator!.Compare(key, Slice(rep_.last_key)) > 0, "comparsion between key and rep_.last_key is greater than 0")
+            precondition(rep_.options.comparator.Compare(key, Slice(rep_.last_key)) > 0, "comparsion between key and rep_.last_key is greater than 0")
         }
 
         if rep_.pending_index_entry {
             precondition(rep_.data_block.empty(), "rep_.data_block is not empty")
-            rep_.options.comparator?.FindShortestSeparator(&rep_.last_key, key)
+            rep_.options.comparator.FindShortestSeparator(&rep_.last_key, key)
             let handle_encoding: BytesStorage = BytesStorage(0)
             rep_.pending_handle.EncodeTo(handle_encoding)
             rep_.index_block.Add(Slice(rep_.last_key), Slice(handle_encoding))
@@ -190,7 +190,7 @@ public class TableBuilder {
 
         if ok() {
             if r.pending_index_entry {
-                r.options.comparator?.FindShortSuccessor(&r.last_key)
+                r.options.comparator.FindShortSuccessor(&r.last_key)
                 let handle_encoding: BytesStorage = BytesStorage(0)
                 r.pending_handle.EncodeTo(handle_encoding)
                 r.index_block.Add(Slice(r.last_key), Slice(handle_encoding))

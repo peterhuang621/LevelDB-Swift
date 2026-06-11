@@ -21,13 +21,12 @@ public class BlockBuilder {
         restarts_ = [0]
         counter_ = 0
         finished_ = false
-        buffer_.clear()
-        last_key_.clear()
+        buffer_ = BytesStorage(0)
+        last_key_ = BytesStorage(0)
     }
 
     public func Reset() {
         buffer_.clear()
-        restarts_.removeAll(keepingCapacity: true)
         restarts_ = [0]
         counter_ = 0
         finished_ = false
@@ -38,7 +37,7 @@ public class BlockBuilder {
         let last_key_piece: Slice = Slice(last_key_)
         precondition(!finished_, "finished_ is true")
         precondition(counter_ <= options_.block_restart_interval, "couter = \(counter_) should be less or equal to options_.block_restart_interval = \(options_.block_restart_interval)")
-        precondition(buffer_.isEmpty || options_.comparator!.Compare(key, last_key_piece) > 0, "buffer_ should maybe empty or options_ fail to compare, or comparsion result <= 0")
+        precondition(buffer_.isEmpty || options_.comparator.Compare(key, last_key_piece) > 0, "buffer_ should maybe empty or options_ fail to compare, or comparsion result <= 0")
         var shared = 0
         if counter_ < options_.block_restart_interval {
             let min_length: Int = min(last_key_piece.size(), key.size())

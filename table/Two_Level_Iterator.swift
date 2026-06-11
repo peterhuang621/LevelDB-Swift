@@ -7,27 +7,22 @@
 
 import Foundation
 
-public typealias BlockFunction = (UnsafeRawPointer, ReadOptions, Slice) -> Iterator
+// Swift closures natively capture context (self), bundling the Table or TableCache instance automatically and eliminating the need for C++'s void* arg.
+public typealias BlockFunction = (ReadOptions, Slice) -> Iterator
 
 public class TwoLevelIterator: Iterator {
     // MARK: - Private properties, initializers and functions
 
     private var block_function_: BlockFunction
-    private var arg_: UnsafeRawPointer
     private let options_: ReadOptions
     private var status_: Status
     private var index_iter_: IteratorWrapper
     private var data_iter_: IteratorWrapper
     private var data_block_handle_: Slice
 
-    init(
-        _ index_iter: Iterator?,
-        _ block_function_: @escaping BlockFunction,
-        _ arg_: UnsafeRawPointer,
-        _ options_: ReadOptions,
+    init(_ index_iter: Iterator?, _ block_function_: @escaping BlockFunction, _ options_: ReadOptions,
     ) {
         self.block_function_ = block_function_
-        self.arg_ = arg_
         self.options_ = options_
         status_ = Status()
         index_iter_ = IteratorWrapper(index_iter)
@@ -82,7 +77,7 @@ public class TwoLevelIterator: Iterator {
             if data_iter_.iter() != nil && handle.compare(data_block_handle_) == 0 {
                 // No need to change anything
             } else {
-                let iter: Iterator = block_function_(arg_, options_, handle)
+                let iter: Iterator = block_function_(options_, handle)
                 data_block_handle_ = handle
                 SetDataIterator(iter)
             }
@@ -155,6 +150,6 @@ public class TwoLevelIterator: Iterator {
     }
 }
 
-public func NewTwoLevelIterator(_ index_iter: Iterator?, _ block_function: @escaping BlockFunction, _ arg: UnsafeRawPointer, _ options: ReadOptions) -> Iterator {
-    return TwoLevelIterator(index_iter, block_function, arg, options)
+public func NewTwoLevelIterator(_ index_iter: Iterator?, _ block_function: @escaping BlockFunction, _ options: ReadOptions) -> Iterator {
+    return TwoLevelIterator(index_iter, block_function, options)
 }

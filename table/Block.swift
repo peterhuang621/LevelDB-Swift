@@ -132,6 +132,65 @@ public class Block {
             while ParseNextKey() && (NextEntryOffset() < original) {}
         }
 
+        override public func Seek(_ target: Slice) {
+            var left: UInt32 = 0
+            var right: UInt32 = num_restarts_ - 1
+            var current_key_compare: Int = 0
+
+            if Valid() {
+                current_key_compare = Compare(Slice(key_), target)
+                if current_key_compare < 0 {
+                    left = restart_index_
+                } else if current_key_compare > 0 {
+                    right = restart_index_
+                } else {
+                    return
+                }
+            }
+
+            while left < right {
+                let mid: UInt32 = (left + right + 1) / 2
+                let region_offset: UInt32 = GetRestartPoint(mid)
+                var shared: UInt32 = 0
+                var non_shared: UInt32 = 0
+                var value_length: UInt32 = 0
+                let key_ptr: UnsafePointer<UInt8>? = DecodeEntry(
+                    data_ + Int(region_offset),
+                    data_ + Int(restarts_),
+                    &shared,
+                    &non_shared,
+                    &value_length
+                )
+                if key_ptr == nil || (shared != 0) {
+                    CorruptionError()
+                    return
+                }
+                let mid_key: Slice = Slice(key_ptr, Int(non_shared))
+                if Compare(mid_key, target) < 0 {
+                    left = mid
+                } else {
+                    right = mid - 1
+                }
+            }
+
+            precondition(
+                current_key_compare == 0 || Valid(),
+                "current_key_compare = \(current_key_compare) should be 0 and Valid() = \(Valid())"
+            )
+            let skip_seek: Bool = (left == restart_index_) && (current_key_compare < 0)
+            if !skip_seek {
+                SeekToRestartPoint(left)
+            }
+            while true {
+                if !ParseNextKey() {
+                    return
+                }
+                if Compare(Slice(key_), target) >= 0 {
+                    return
+                }
+            }
+        }
+
         override public func SeekToFirst() {
             SeekToRestartPoint(0)
             _ = ParseNextKey()

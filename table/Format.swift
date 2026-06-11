@@ -16,10 +16,10 @@ public class BlockHandle {
 
     public static let kMaxEncodedLength = 10 + 10
 
-    public var offset: UInt64 { return offset_ }
+    public func offset() -> UInt64 { return offset_ }
     public func set_offset(_ offset: UInt64) { offset_ = offset }
 
-    public var size: UInt64 { return size_ }
+    public func size() -> UInt64 { return size_ }
     public func set_size(_ size: UInt64) { size_ = size }
 
     public func EncodeTo(_ dst: BytesStorage) {
@@ -29,9 +29,8 @@ public class BlockHandle {
         PutVarint64(dst, size_)
     }
 
-    public func DecodeFrom(_ input: Slice) -> Status {
-        var inp = input
-        if GetVarint64(&inp, &offset_) && GetVarint64(&inp, &size_) {
+    public func DecodeFrom(_ input: inout Slice) -> Status {
+        if GetVarint64(&input, &offset_) && GetVarint64(&input, &size_) {
             return Status.OK()
         } else {
             return Status.Corruption("bad block handle")
@@ -45,10 +44,10 @@ public class Footer {
 
     public static let kEncodedLength = 2 * BlockHandle.kMaxEncodedLength + 8
 
-    public var metaindex_handle: BlockHandle { return metaindex_handle_ }
+    public func metaindex_handle() -> BlockHandle { return metaindex_handle_ }
     public func set_metaindex_handle(_ h: BlockHandle) { metaindex_handle_ = h }
 
-    public var index_handle: BlockHandle { return index_handle_ }
+    public func index_handle() -> BlockHandle { return index_handle_ }
     public func set_index_handle(_ h: BlockHandle) { index_handle_ = h }
 
     public func EncodeTo(_ dst: BytesStorage) {
@@ -77,9 +76,9 @@ public class Footer {
             return Status.Corruption("not an sstable (bad magic number)")
         }
 
-        var result: Status = metaindex_handle_.DecodeFrom(input)
+        var result: Status = metaindex_handle_.DecodeFrom(&input)
         if result.ok() {
-            result = index_handle_.DecodeFrom(input)
+            result = index_handle_.DecodeFrom(&input)
         }
         if result.ok() {
             input = Slice(input.data(), Footer.kEncodedLength)
@@ -106,10 +105,10 @@ public func ReadBlock(
     result.cachable = false
     result.heap_allocated = false
 
-    let n: Int = Int(handle.size)
-    var buf: BytesStorage = BytesStorage(n + kBlockTrailerSize)
+    let n: Int = Int(handle.size())
+    let buf: BytesStorage = BytesStorage(n + kBlockTrailerSize)
     var contents: Slice = Slice()
-    var s: Status = file!.Read(handle.offset, n + kBlockTrailerSize, &contents, buf)
+    var s: Status = file!.Read(handle.offset(), n + kBlockTrailerSize, &contents, buf)
     if !s.ok() {
         return s
     }

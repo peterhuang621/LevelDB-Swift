@@ -14,7 +14,7 @@ public enum CompressionType: UInt8 {
 }
 
 public struct Options {
-    public var comparator: (any Comparator)? = BytewiseComparator()
+    public var comparator: any Comparator = BytewiseComparator()
     public var create_if_missing = false
     public var error_if_exists = false
     public var paranoid_checks = false
