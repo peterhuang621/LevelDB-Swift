@@ -12,16 +12,16 @@ public protocol Cache: AnyObject {
     // Opaque struct
     typealias Handle = LRUHandle
 
-    func Insert(key: Slice, value: UnsafeMutableRawPointer?, charge: Int,
-                deleter: ((Slice, UnsafeMutableRawPointer?) -> Void)?) -> Handle?
+    func Insert(_ key: Slice, _ value: UnsafeMutableRawPointer?, _ charge: Int,
+                _ deleter: ((Slice, UnsafeMutableRawPointer?) -> Void)?) -> UnsafeMutablePointer<Handle>?
 
-    func Lookup(key: Slice) -> UnsafeMutablePointer<Handle>?
+    func Lookup(_ key: Slice) -> UnsafeMutablePointer<Handle>?
 
-    func Release(handle: UnsafeMutablePointer<Handle>?)
+    func Release(_ handle: UnsafeMutablePointer<Handle>?)
 
-    func Value(handle: UnsafeMutablePointer<Handle>?) -> UnsafeMutableRawPointer?
+    func Value(_ handle: UnsafeMutablePointer<Handle>?) -> UnsafeMutableRawPointer?
 
-    func Erase(key: Slice)
+    func Erase(_ key: Slice)
 
     func NewId() -> UInt64
 
@@ -347,32 +347,31 @@ public class ShardedLRUCache: Cache {
         }
     }
 
-    public func Insert(key: Slice, value: UnsafeMutableRawPointer?, charge: Int, deleter: ((Slice, UnsafeMutableRawPointer?) -> Void)?) -> Cache.Handle? {
+    public func Insert(_ key: Slice, _ value: UnsafeMutableRawPointer?, _ charge: Int, _ deleter: ((Slice, UnsafeMutableRawPointer?) -> Void)?) -> UnsafeMutablePointer<Cache.Handle>? {
         let hash = ShardedLRUCache.HashSlice(key)
-        return shard_[ShardedLRUCache.Shard(hash)]
-            .Insert(key, hash, value, charge, deleter)?.pointee
+        return shard_[ShardedLRUCache.Shard(hash)].Insert(key, hash, value, charge, deleter)
     }
 
-    public func Lookup(key: Slice) -> UnsafeMutablePointer<Cache.Handle>? {
+    public func Lookup(_ key: Slice) -> UnsafeMutablePointer<Cache.Handle>? {
         let hash = ShardedLRUCache.HashSlice(key)
         return shard_[ShardedLRUCache.Shard(hash)].Lookup(key, hash)
     }
 
-    public func Release(handle: UnsafeMutablePointer<Handle>?) {
+    public func Release(_ handle: UnsafeMutablePointer<Handle>?) {
         guard let h = handle?.pointee as? LRUHandle else {
             fatalError("handle fails to be reinterpreted")
         }
         shard_[ShardedLRUCache.Shard(h.hash)].Release(handle!)
     }
 
-    public func Value(handle: UnsafeMutablePointer<Handle>?) -> UnsafeMutableRawPointer? {
+    public func Value(_ handle: UnsafeMutablePointer<Handle>?) -> UnsafeMutableRawPointer? {
         guard let h = handle?.pointee as? LRUHandle else {
             fatalError("handle fails to be reinterpreted")
         }
         return h.value
     }
 
-    public func Erase(key: Slice) {
+    public func Erase(_ key: Slice) {
         let hash = ShardedLRUCache.HashSlice(key)
         shard_[ShardedLRUCache.Shard(hash)].Erase(key, hash)
     }

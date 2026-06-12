@@ -71,7 +71,7 @@ public class Iterator {
         fatalError("must be override")
     }
 
-    public func RegisterCleanup(_ function: CleanupFunction?, _ arg1: UnsafeRawPointer, _ arg2: UnsafeRawPointer) {
+    public func RegisterCleanup(_ function: CleanupFunction?, _ arg1: UnsafeRawPointer?, _ arg2: UnsafeRawPointer?) {
         precondition(function != nil, "function is nil")
 
         if cleanup_head_.IsEmpty() {

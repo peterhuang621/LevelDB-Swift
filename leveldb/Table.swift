@@ -27,7 +27,56 @@ public class Table {
     }
 
     private func BlockReader(_ options: ReadOptions, _ index_value: Slice) -> Iterator {
-        return Iterator()
+        let block_cache: (any Cache)? = rep_.options.block_cache
+        var block: UnsafeMutablePointer<Block>?
+        var cache_handle: UnsafeMutablePointer<Cache.Handle>?
+
+        let handle: BlockHandle = BlockHandle()
+        var input: Slice = index_value
+        var s: Status = handle.DecodeFrom(&input)
+
+        if s.ok() {
+            let contents: BlockContents = BlockContents()
+            if block_cache != nil {
+                let cache_key_buffer: BytesStorage = BytesStorage(16)
+                EncodeFixed64(cache_key_buffer, rep_.cache_id)
+                EncodeFixed64(cache_key_buffer, handle.offset(), 8)
+                let key: Slice = Slice(cache_key_buffer)
+                cache_handle = block_cache!.Lookup(key)
+                if cache_handle != nil {
+                    let val: UnsafeMutableRawPointer = block_cache!.Value(cache_handle)!
+                    block = val.assumingMemoryBound(to: Block.self)
+                } else {
+                    s = ReadBlock(rep_.file, options, handle, contents)
+                    if s.ok() {
+                        let tmp: Block = Block(contents)
+                        block = Unmanaged.passRetained(tmp).toOpaque().assumingMemoryBound(to: Block.self)
+                        if contents.cachable && options.fill_cache {
+                            cache_handle = block_cache!.Insert(key, block, block!.pointee.size(), DeleteCachedBlock)
+                        }
+                    }
+                }
+            } else {
+                s = ReadBlock(rep_.file, options, handle, contents)
+                if s.ok() {
+                    let tmp: Block = Block(contents)
+                    block = Unmanaged.passRetained(tmp).toOpaque().assumingMemoryBound(to: Block.self)
+                }
+            }
+        }
+        var iter: Iterator!
+        if block != nil {
+            iter = block!.pointee.NewIterator(rep_.options.comparator)
+            if cache_handle == nil {
+                iter.RegisterCleanup(DeleteBlock, block, nil)
+            } else {
+                let cacheRawPtr = Unmanaged.passUnretained(block_cache as AnyObject).toOpaque()
+                iter.RegisterCleanup(ReleaseBlock, cacheRawPtr, cache_handle)
+            }
+        } else {
+            iter = NewErrorIterator(s)
+        }
+        return iter
     }
 
     private func InternalGet(_ options: ReadOptions, _ k: Slice, _ arg: UnsafeRawPointer, _ handle_result: (UnsafeRawPointer, Slice, Slice) -> Void) -> Status {
@@ -174,15 +223,16 @@ public class Table {
 }
 
 fileprivate func DeleteBlock(_ arg: UnsafeRawPointer, _ ignored: UnsafeRawPointer) {
+    Unmanaged<Block>.fromOpaque(arg).release()
+}
+
+fileprivate func DeleteCachedBlock(_ key: Slice, _ value: UnsafeMutableRawPointer?) {
     // No need to implement under Swift ARC.
 }
 
-fileprivate func DeleteCachedBlock(_ key: Slice, _ value: UnsafeRawPointer) {
-    // No need to implement under Swift ARC.
-}
-
-fileprivate func ReleaseBlock(_ arg: UnsafeRawPointer, _ h: UnsafeMutableRawPointer) {
+fileprivate func ReleaseBlock(_ arg: UnsafeRawPointer, _ h: UnsafeRawPointer) {
     let cache: UnsafePointer<Cache> = arg.assumingMemoryBound(to: Cache.self)
-    let handle: UnsafeMutablePointer<Cache.Handle> = h.assumingMemoryBound(to: Cache.Handle.self)
-    cache.pointee.Release(handle: handle)
+    let mutableH = UnsafeMutableRawPointer(mutating: h)
+    let handle: UnsafeMutablePointer<Cache.Handle> = mutableH.assumingMemoryBound(to: Cache.Handle.self)
+    cache.pointee.Release(handle)
 }
