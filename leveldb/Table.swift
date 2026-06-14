@@ -70,8 +70,8 @@ public class Table {
             if cache_handle == nil {
                 iter.RegisterCleanup(DeleteBlock, block, nil)
             } else {
-                let cacheRawPtr = Unmanaged.passUnretained(block_cache as AnyObject).toOpaque()
-                iter.RegisterCleanup(ReleaseBlock, cacheRawPtr, cache_handle)
+                let tableRawPtr: UnsafeMutableRawPointer = Unmanaged.passUnretained(self).toOpaque()
+                iter.RegisterCleanup(ReleaseBlock, tableRawPtr, cache_handle)
             }
         } else {
             iter = NewErrorIterator(s)
@@ -179,16 +179,23 @@ public class Table {
 
         if s.ok() {
             let index_block: Block = Block(index_block_contents)
-            var rep: Table.Rep!
-            rep.options = options
-            rep.file = file
-            rep.metaindex_handle = footer.metaindex_handle()
-            rep.index_block = index_block
-            rep.cache_id = ((options.block_cache != nil) ? options.block_cache!.NewId() : 0)
-            rep.filter_data = nil
-            rep.filter = nil
-            table = Table(rep)
-            table!.ReadMeta(footer)
+            var rep: Table.Rep = Table.Rep(
+                options: options,
+                status: Status(),
+                file: file,
+                cache_id: (options.block_cache != nil) ? options.block_cache!.NewId() : 0,
+                filter: nil,
+                filter_data: nil,
+                metaindex_handle: footer.metaindex_handle(),
+                index_block: index_block
+            )
+
+            let targetTable: Table = Table(rep)
+            targetTable.ReadMeta(footer)
+
+            withExtendedLifetime(footer_space) {
+                table = targetTable
+            }
         }
         return s
     }
@@ -220,6 +227,10 @@ public class Table {
         }
         return result
     }
+
+    fileprivate func releaseCachedHandle(_ handle: UnsafeMutablePointer<Cache.Handle>) {
+        rep_.options.block_cache?.Release(handle)
+    }
 }
 
 fileprivate func DeleteBlock(_ arg: UnsafeRawPointer, _ ignored: UnsafeRawPointer) {
@@ -227,12 +238,12 @@ fileprivate func DeleteBlock(_ arg: UnsafeRawPointer, _ ignored: UnsafeRawPointe
 }
 
 fileprivate func DeleteCachedBlock(_ key: Slice, _ value: UnsafeMutableRawPointer?) {
-    // No need to implement under Swift ARC.
+    Unmanaged<Block>.fromOpaque(value!).release()
 }
 
 fileprivate func ReleaseBlock(_ arg: UnsafeRawPointer, _ h: UnsafeRawPointer) {
-    let cache: UnsafePointer<Cache> = arg.assumingMemoryBound(to: Cache.self)
-    let mutableH = UnsafeMutableRawPointer(mutating: h)
+    let table: Table = Unmanaged<Table>.fromOpaque(arg).takeUnretainedValue()
+    let mutableH: UnsafeMutableRawPointer = UnsafeMutableRawPointer(mutating: h)
     let handle: UnsafeMutablePointer<Cache.Handle> = mutableH.assumingMemoryBound(to: Cache.Handle.self)
-    cache.pointee.Release(handle)
+    table.releaseCachedHandle(handle)
 }
