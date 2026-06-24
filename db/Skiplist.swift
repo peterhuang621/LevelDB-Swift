@@ -8,7 +8,7 @@
 import Foundation
 import Synchronization
 
-public class Skiplist<Key, Comp: Comparator> {
+public class Skiplist<Key, Comp> {
     private struct Node {
         private var next_: UnsafeMutablePointer<Atomic<UnsafeMutablePointer<Node>?>>?
 
@@ -78,4 +78,33 @@ public class Skiplist<Key, Comp: Comparator> {
 
         return node_iter
     }
+
+    public class Iterator {
+        private let list_: Skiplist
+        private var node_: UnsafePointer<Node>?
+
+        init(_ list: Skiplist) {
+            list_ = list
+        }
+
+        public func Valid() -> Bool {
+            return true
+        }
+
+        public func key() -> Key? {
+            return nil
+        }
+
+        public func Next() {}
+
+        public func Prev() {}
+
+        public func Seek(_ target: Key) {}
+
+        public func SeekToFirst() {}
+
+        public func SeekToLast() {}
+    }
+
+    public func Insert(_ key: Key) {}
 }

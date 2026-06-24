@@ -38,7 +38,25 @@ public func EncodeFixed32(_ dst: BytesStorage, _ value: UInt32, _ offset: Int = 
     dst[offset + 3] = UInt8((value >> 24) & 0xFF)
 }
 
+public func EncodeFixed32(_ dst: UnsafeMutablePointer<UInt8>, _ value: UInt32, _ offset: Int = 0) {
+    dst[offset] = UInt8(value & 0xFF)
+    dst[offset + 1] = UInt8((value >> 8) & 0xFF)
+    dst[offset + 2] = UInt8((value >> 16) & 0xFF)
+    dst[offset + 3] = UInt8((value >> 24) & 0xFF)
+}
+
 public func EncodeFixed64(_ dst: BytesStorage, _ value: UInt64, _ offset: Int = 0) {
+    dst[offset] = UInt8(value & 0xFF)
+    dst[offset + 1] = UInt8((value >> 8) & 0xFF)
+    dst[offset + 2] = UInt8((value >> 16) & 0xFF)
+    dst[offset + 3] = UInt8((value >> 24) & 0xFF)
+    dst[offset + 4] = UInt8((value >> 32) & 0xFF)
+    dst[offset + 5] = UInt8((value >> 40) & 0xFF)
+    dst[offset + 6] = UInt8((value >> 48) & 0xFF)
+    dst[offset + 7] = UInt8((value >> 56) & 0xFF)
+}
+
+public func EncodeFixed64(_ dst: UnsafeMutablePointer<UInt8>, _ value: UInt64, _ offset: Int = 0) {
     dst[offset] = UInt8(value & 0xFF)
     dst[offset + 1] = UInt8((value >> 8) & 0xFF)
     dst[offset + 2] = UInt8((value >> 16) & 0xFF)
@@ -65,6 +83,22 @@ public func EncodeVarint32(_ dst: BytesStorage, _ v: UInt32) {
         value >>= 7
     }
     dst.append(UInt8(value))
+}
+
+public func EncodeVarint32(_ p: UnsafeMutablePointer<UInt8>, _ v: UInt32) -> UnsafeMutablePointer<UInt8> {
+    let B: UInt32 = 0x80
+    var value: UInt32 = v
+    var ptr = p
+
+    while value >= B {
+        ptr.pointee = UInt8((value & 0x7F) | B)
+        ptr += 1
+        value >>= 7
+    }
+
+    ptr.pointee = UInt8(value)
+    ptr += 1
+    return ptr
 }
 
 public func EncodeVarint64(_ dst: BytesStorage, _ v: UInt64) {

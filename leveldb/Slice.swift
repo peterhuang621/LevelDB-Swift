@@ -63,32 +63,25 @@ public class BytesStorage {
         }
     }
 
-    public subscript(_ bounds: Range<Int>) -> Slice {
+    public subscript(_ range: Swift.Range<Int>) -> Slice {
         get {
-            precondition(bounds.lowerBound >= 0 && bounds.upperBound <= data_.length, "Range \(bounds) out of bounds \(data_.length)")
-            let startPtr = pointer + bounds.lowerBound
-            let length = bounds.count
-            return Slice(startPtr, length)
+            let basePtr: UnsafeMutablePointer<UInt8> = data_.mutableBytes.assumingMemoryBound(to: UInt8.self)
+            let startPtr: UnsafeMutablePointer<UInt8> = basePtr.advanced(by: range.lowerBound)
+            return Slice(startPtr, range.count)
         }
         set {
-            precondition(bounds.lowerBound >= 0 && bounds.upperBound <= data_.length, "Range \(bounds) out of bounds \(data_.length)")
-            guard bounds.count > 0 else { return }
-            precondition(bounds.count == newValue.size(), "Value size \(newValue.size()) must match range count \(bounds.count)")
-
-            if let srcPtr = newValue.data() {
-                let destPtr = mutablepointer + bounds.lowerBound
-                memcpy(destPtr, srcPtr, bounds.count)
-            }
+            let nsRange: NSRange = NSMakeRange(range.lowerBound, range.count)
+            data_.replaceBytes(in: nsRange, withBytes: newValue.data()!)
         }
     }
 
     public subscript(_ bounds: ClosedRange<Int>) -> Slice {
         get {
-            let range = Range(bounds)
+            let range = Swift.Range(bounds)
             return self[range]
         }
         set {
-            let range = Range(bounds)
+            let range = Swift.Range(bounds)
             self[range] = newValue
         }
     }

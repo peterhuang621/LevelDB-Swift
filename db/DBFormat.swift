@@ -177,7 +177,7 @@ public class InternalKey {
         AppendInternalKey(rep_, p)
     }
 
-    public func clear() { rep_.clear() }
+    public func Clear() { rep_.clear() }
 
     public func DebugString() -> String {
         var parsed = ParsedInternalKey()
@@ -223,6 +223,12 @@ public class LookupKey {
         EncodeFixed64(space_, PackSequenceAndType(s, kValueTypeForSeek))
         end_ = space_.count
     }
+
+    public func memtable_key() -> Slice { return Slice(space_.pointer + start_, end_ - start_) }
+
+    public func internal_key() -> Slice { return Slice(space_.pointer + kstart_, end_ - kstart_) }
+
+    public func user_key() -> Slice { return Slice(space_.pointer + kstart_, end_ - kstart_ - 8) }
 }
 
 fileprivate func PackSequenceAndType(_ seq: UInt64, _ t: ValueType) -> UInt64 {
