@@ -216,3 +216,13 @@ public func PutLengthPrefixedSlice(_ dst: BytesStorage, _ value: Slice) {
     PutVarint32(dst, UInt32(value.size()))
     dst.append(value.data()!, value.size())
 }
+
+public func VarintLength(_ val: UInt64) -> Int {
+    var len: Int = 1
+    var v: UInt64 = val
+    while v >= 128 {
+        v >>= 7
+        len += 1
+    }
+    return len
+}

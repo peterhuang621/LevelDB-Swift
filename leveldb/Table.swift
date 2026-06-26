@@ -179,7 +179,7 @@ public class Table {
 
         if s.ok() {
             let index_block: Block = Block(index_block_contents)
-            var rep: Table.Rep = Table.Rep(
+            let rep: Table.Rep = Table.Rep(
                 options: options,
                 status: Status(),
                 file: file,

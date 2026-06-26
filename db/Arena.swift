@@ -24,14 +24,14 @@ public class Arena {
         alloc_ptr_ = AllocateNewBlock(kBlockSize_)
         alloc_bytes_remaining_ = kBlockSize_
 
-        var result: UnsafeMutablePointer<UInt8> = alloc_ptr_!
+        let result: UnsafeMutablePointer<UInt8> = alloc_ptr_!
         alloc_ptr_! += bytes
         alloc_bytes_remaining_ -= bytes
         return result
     }
 
     private func AllocateNewBlock(_ block_bytes: Int) -> UnsafeMutablePointer<UInt8> {
-        var results: BytesStorage = BytesStorage(block_bytes)
+        let results: BytesStorage = BytesStorage(block_bytes)
         blocks_.append(results.mutablepointer)
         memory_usage_.add(block_bytes + MemoryLayout<UnsafeMutablePointer<UInt8>>.stride, ordering: .relaxed)
         return results.mutablepointer
@@ -40,7 +40,7 @@ public class Arena {
     public func Allocate(_ bytes: Int) -> UnsafeMutablePointer<UInt8> {
         precondition(bytes > 0, "bytes = \(bytes) should be greater than 0")
         if bytes <= alloc_bytes_remaining_ {
-            var result: UnsafeMutablePointer<UInt8> = alloc_ptr_!
+            let result: UnsafeMutablePointer<UInt8> = alloc_ptr_!
             alloc_ptr_! += bytes
             alloc_bytes_remaining_ -= bytes
             return result
@@ -51,9 +51,9 @@ public class Arena {
     public func AllocateAligned(_ bytes: Int) -> UnsafeMutablePointer<UInt8> {
         let align: Int = MemoryLayout<UnsafeMutableRawPointer>.stride
         precondition((align & (align - 1)) == 0, "pointer size should be a power of 2")
-        var current_mod: Int = Int(bitPattern: alloc_ptr_!) & (align - 1)
-        var slop: Int = (current_mod == 0 ? 0 : align - current_mod)
-        var needed: Int = bytes + slop
+        let current_mod: Int = Int(bitPattern: alloc_ptr_!) & (align - 1)
+        let slop: Int = (current_mod == 0 ? 0 : align - current_mod)
+        let needed: Int = bytes + slop
         var result: UnsafeMutablePointer<UInt8>?
         if needed <= alloc_bytes_remaining_ {
             result = alloc_ptr_! + slop

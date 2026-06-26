@@ -32,14 +32,17 @@ public class MemTable {
 
     init(_ comparator: InternalKeyComparator) {
         comparator_ = KeyComparator(comparator)
-        table_ = Table_(comparator_, arena_)
+        // Use arena_ to allocate a preallocate memory to avoid the difficulties in transferring cpp template definitions to Swift.
+        let dummKey: UnsafePointer<UInt8> = UnsafePointer<UInt8>(arena_.Allocate(1))
+
+        table_ = Table_(comparator_, arena_, dummKey)
     }
 
     deinit {
         precondition(refs_ == 0, "refs_ = \(refs_) should be equal to 0")
     }
 
-    public struct KeyComparator {
+    public struct KeyComparator: SkipListComparator {
         public var comparator: InternalKeyComparator
         init(_ c: InternalKeyComparator) { comparator = c }
         public func callAsFunction(_ aptr: UnsafePointer<UInt8>, _ bptr: UnsafePointer<UInt8>) -> Int {
@@ -62,11 +65,7 @@ public class MemTable {
         let key_size: Int = key.size()
         let val_size: Int = value.size()
         let internal_key_size: Int = key_size + 8
-        let encoded_len: Int = 0
-        // VarintLength(internal_key_size) + internal_key_size + VarintLength(val_size) + val_size;
-
-
-      
+        let encoded_len: Int = VarintLength(UInt64(internal_key_size)) + internal_key_size + VarintLength(UInt64(val_size)) + val_size
 
         let buf: UnsafeMutablePointer<UInt8> = arena_.Allocate(encoded_len)
         var p: UnsafeMutablePointer<UInt8> = EncodeVarint32(buf, UInt32(internal_key_size))
@@ -81,8 +80,8 @@ public class MemTable {
     }
 
     public func Get(_ key: LookupKey, _ value: inout BytesStorage, _ s: inout Status) -> Bool {
-        var memkey: Slice = key.memtable_key()
-        var iter: Table_.Iterator = Table_.Iterator(table_)
+        let memkey: Slice = key.memtable_key()
+        let iter: Table_.Iterator = Table_.Iterator(table_)
         iter.Seek(memkey.data()!)
         if iter.Valid() {
             let entry: UnsafePointer<UInt8> = iter.key()!
@@ -94,7 +93,7 @@ public class MemTable {
                 let tag: UInt64 = DecodeFixed64(key_ptr + Int(key_length) - 8)
                 switch ValueType(rawValue: UInt8(tag & 0xFF)) {
                 case .kTypeValue:
-                    var v: Slice = GetLengthPrefixedSlice(key_ptr + Int(key_length))
+                    let v: Slice = GetLengthPrefixedSlice(key_ptr + Int(key_length))
                     value = BytesStorage(v)
                     return true
                 case .kTypeDeletion:
@@ -133,7 +132,7 @@ public class MemTableIterator: Iterator {
     override public func key() -> Slice { GetLengthPrefixedSlice(iter_.key()!) }
 
     override public func value() -> Slice {
-        var key_slice: Slice = GetLengthPrefixedSlice(iter_.key()!)
+        let key_slice: Slice = GetLengthPrefixedSlice(iter_.key()!)
         return GetLengthPrefixedSlice(key_slice.data()! + key_slice.size())
     }
 

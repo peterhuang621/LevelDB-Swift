@@ -35,7 +35,7 @@ public struct Options {
 public struct ReadOptions {
     var verify_checksums = false
     var fill_cache = true
-    var snapshot: (any Snapshot)?
+    var snapshot: Snapshot?
 }
 
 public struct WriteOptions {
