@@ -155,29 +155,42 @@ public class Skiplist<Key, Comp: SkipListComparator> where Comp.Key == Key {
 
     public class Iterator {
         private let list_: Skiplist
-        private var node_: UnsafePointer<Node>?
+        private var node_: UnsafeMutablePointer<Node>?
 
         init(_ list: Skiplist) {
             list_ = list
         }
 
-        public func Valid() -> Bool {
-            return true
+        public func Valid() -> Bool { return node_ != nil }
+
+        public func key() -> Key {
+            precondition(Valid())
+            return node_!.pointee.key
         }
 
-        public func key() -> Key? {
-            return nil
+        public func Next() {
+            precondition(Valid())
+            node_ = node_!.pointee.Next(0)
         }
 
-        public func Next() {}
+        public func Prev() {
+            precondition(Valid())
+            node_ = list_.FindLessThan(node_!.pointee.key)
+            if node_ == list_.head_ {
+                node_ = nil
+            }
+        }
 
-        public func Prev() {}
+        public func Seek(_ target: Key) { node_ = list_.FindGreaterOrEqual(target, nil) }
 
-        public func Seek(_ target: Key) {}
+        public func SeekToFirst() { node_ = list_.head_.pointee.Next(0) }
 
-        public func SeekToFirst() {}
-
-        public func SeekToLast() {}
+        public func SeekToLast() {
+          node_ = list_.FindLast()
+          if node_ == list_.head_ {
+            node_ = nil
+          }
+        }
     }
 
     public func Insert(_ key: Key) {

@@ -156,6 +156,9 @@ public class InternalFilterPolicy: FilterPolicy {
 public class InternalKey {
     private var rep_: BytesStorage = BytesStorage(0)
 
+    init() {
+    }
+
     init(_ user_key: Slice, _ s: SequenceNumber, _ t: ValueType) {
         AppendInternalKey(rep_, ParsedInternalKey(u: user_key, seq: s, t: t))
     }

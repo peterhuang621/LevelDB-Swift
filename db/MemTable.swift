@@ -84,7 +84,7 @@ public class MemTable {
         let iter: Table_.Iterator = Table_.Iterator(table_)
         iter.Seek(memkey.data()!)
         if iter.Valid() {
-            let entry: UnsafePointer<UInt8> = iter.key()!
+            let entry: UnsafePointer<UInt8> = iter.key()
             var key_length: UInt32 = 0
             let key_ptr: UnsafePointer<UInt8> = GetVarint32Ptr(entry, entry + 5, &key_length)!
             if comparator_.comparator
@@ -129,10 +129,10 @@ public class MemTableIterator: Iterator {
 
     override public func Prev() { iter_.Prev() }
 
-    override public func key() -> Slice { GetLengthPrefixedSlice(iter_.key()!) }
+    override public func key() -> Slice { GetLengthPrefixedSlice(iter_.key()) }
 
     override public func value() -> Slice {
-        let key_slice: Slice = GetLengthPrefixedSlice(iter_.key()!)
+        let key_slice: Slice = GetLengthPrefixedSlice(iter_.key())
         return GetLengthPrefixedSlice(key_slice.data()! + key_slice.size())
     }
 
