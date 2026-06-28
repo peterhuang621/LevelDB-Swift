@@ -7,7 +7,7 @@
 
 import Foundation
 
-public struct FileMetaData {
+public class FileMetaData {
     var refs: Int = 0
     var allowed_seeks: Int = (1 << 30)
     var number: UInt64 = 0
@@ -100,7 +100,7 @@ public class VersionEdit {
     }
 
     public func AddFile(_ level: Int, _ file: UInt64, _ file_size: UInt64, _ smallest: InternalKey, _ largest: InternalKey) {
-        var f: FileMetaData = FileMetaData()
+        let f: FileMetaData = FileMetaData()
         f.number = file
         f.file_size = file_size
         f.smallest = smallest
@@ -138,10 +138,10 @@ public class VersionEdit {
             PutVarint64(dst, last_sequence_)
         }
 
-        for i in 0 ..< compact_pointers_.count {
+        for (first, second) in compact_pointers_ {
             PutVarint32(dst, Tag.kCompactPointer.rawValue)
-            PutVarint32(dst, UInt32(compact_pointers_[i].first))
-            PutLengthPrefixedSlice(dst, compact_pointers_[i].second.Encode())
+            PutVarint32(dst, UInt32(first))
+            PutLengthPrefixedSlice(dst, second.Encode())
         }
 
         for deleted_file_kvp in deleted_files_ {
@@ -150,10 +150,9 @@ public class VersionEdit {
             PutVarint64(dst, deleted_file_kvp.second)
         }
 
-        for i in 0 ..< new_files_.count {
-            let f: FileMetaData = new_files_[i].second
+        for (level, f) in new_files_ {
             PutVarint32(dst, Tag.kNewFile.rawValue)
-            PutVarint32(dst, UInt32(new_files_[i].first))
+            PutVarint32(dst, UInt32(level))
             PutVarint64(dst, f.number)
             PutVarint64(dst, f.file_size)
             PutLengthPrefixedSlice(dst, f.smallest.Encode())
@@ -162,10 +161,158 @@ public class VersionEdit {
     }
 
     public func DecodeFrom(_ src: Slice) -> Status {
-        return Status()
+        Clear()
+        var input: Slice = src
+        var msg: String?
+        var tag: UInt32 = 0
+
+        var level: Int = 0
+        var number: UInt64 = 0
+        let f: FileMetaData = FileMetaData()
+        var str: Slice = Slice()
+        let key: InternalKey = InternalKey()
+
+        while msg == nil && GetVarint32(&input, &tag) {
+            switch Tag(rawValue: tag) {
+            case .kComparator:
+                if GetLengthPrefixedSlice(&input, &str) {
+                    comparator_ = BytesStorage(str.ToString())
+                    has_comparator_ = true
+                } else {
+                    msg = "comparator name"
+                }
+
+            case .kLogNumber:
+                if GetVarint64(&input, &log_number_) {
+                    has_log_number_ = true
+                } else {
+                    msg = "log number"
+                }
+
+            case .kPrevLogNumber:
+                if GetVarint64(&input, &prev_log_number_) {
+                    has_prev_log_number_ = true
+                } else {
+                    msg = "previous log number"
+                }
+
+            case .kNextFileNumber:
+                if GetVarint64(&input, &next_file_number_) {
+                    has_next_file_number_ = true
+                } else {
+                    msg = "next file number"
+                }
+
+            case .kLastSequence:
+                if GetVarint64(&input, &last_sequence_) {
+                    has_last_sequence_ = true
+                } else {
+                    msg = "last sequence number"
+                }
+
+            case .kCompactPointer:
+                if GetLevel(&input, &level) && GetInternalKey(&input, key) {
+                    compact_pointers_.append((level, key))
+                } else {
+                    msg = "compaction pointer"
+                }
+
+            case .kDeletedFile:
+                if GetLevel(&input, &level) && GetVarint64(&input, &number) {
+                    deleted_files_.insert(DeletedFile(first: level, second: number))
+                } else {
+                    msg = "deleted file"
+                }
+
+            case .kNewFile:
+                if GetLevel(&input, &level) && GetVarint64(&input, &f.number) && GetVarint64(&input, &f.file_size) && GetInternalKey(&input, f.smallest) && GetInternalKey(&input, f.largest) {
+                    new_files_.append((level, f))
+                } else {
+                    msg = "new-file entry"
+                }
+
+            default:
+                msg = "unknown tag"
+            }
+        }
+
+        if msg == nil && !input.empty() {
+            msg = "invalid tag"
+        }
+
+        var result: Status = Status()
+        if let msg = msg {
+            result = Status.Corruption("VersionEdit", msg)
+        }
+        return result
     }
 
     public func DebugString() -> String {
-        return ""
+        var r: String = ""
+        r.append("VersionEdit {")
+        if has_comparator_ {
+            r.append("\n  Comparator: ")
+            r.append(comparator_.getStringCopy())
+        }
+        if has_log_number_ {
+            r.append("\n  LogNumber: ")
+            AppendNumberTo(&r, log_number_)
+        }
+        if has_prev_log_number_ {
+            r.append("\n  PrevLogNumber: ")
+            AppendNumberTo(&r, prev_log_number_)
+        }
+        if has_next_file_number_ {
+            r.append("\n  NextFile: ")
+            AppendNumberTo(&r, next_file_number_)
+        }
+        if has_last_sequence_ {
+            r.append("\n  LastSeq: ")
+            AppendNumberTo(&r, last_sequence_)
+        }
+        for (first, second) in compact_pointers_ {
+            r.append("\n  CompactPointer: ")
+            AppendNumberTo(&r, first)
+            r.append(" ")
+            r.append(second.DebugString())
+        }
+        for deleted_files_kvp in deleted_files_ {
+            r.append("\n  RemoveFile: ")
+            AppendNumberTo(&r, deleted_files_kvp.first)
+            r.append(" ")
+            AppendNumberTo(&r, deleted_files_kvp.second)
+        }
+        for (level, f) in new_files_ {
+            r.append("\n  AddFile: ")
+            AppendNumberTo(&r, level)
+            r.append(" ")
+            AppendNumberTo(&r, f.number)
+            r.append(" ")
+            AppendNumberTo(&r, f.file_size)
+            r.append(" ")
+            r.append(f.smallest.DebugString())
+            r.append(" .. ")
+            r.append(f.largest.DebugString())
+        }
+        r.append("\n}\n")
+        return r
+    }
+}
+
+fileprivate func GetInternalKey(_ input: inout Slice, _ dst: InternalKey) -> Bool {
+    var str: Slice = Slice()
+    if GetLengthPrefixedSlice(&input, &str) {
+        return dst.DecodeFrom(str)
+    }
+    return false
+}
+
+fileprivate func GetLevel(_ input: inout Slice, _ level: inout Int) -> Bool {
+    var v: UInt32 = 0
+    if GetVarint32(&input, &v) && v < config.kNumLevels {
+        level = Int(v)
+        return true
+    } else {
+        return false
     }
 }

@@ -7,7 +7,9 @@
 
 import Foundation
 
-public class BytesStorage {
+public class BytesStorage: Sequence {
+    public typealias Element = UInt8
+
     private var data_: NSMutableData
 
     // MARK: - Initializers
@@ -48,6 +50,31 @@ public class BytesStorage {
 
     public func clear() {
         data_.length = 0
+    }
+
+    // MARK: - Sequence protocol implementation
+
+    public struct Iterator: IteratorProtocol {
+        private let basePtr: UnsafeMutablePointer<UInt8>
+        private let length: Int
+        private var index: Int
+
+        init(_ basePtr_: UnsafeMutablePointer<UInt8>, _ length_: Int) {
+            basePtr = basePtr_
+            length = length_
+            index = 0
+        }
+
+        public mutating func next() -> UInt8? {
+            guard index < length else { return nil }
+            let value: UInt8? = basePtr[index]
+            index += 1
+            return value
+        }
+    }
+
+    public func makeIterator() -> Iterator {
+        return Iterator(mutablepointer, count)
     }
 
     // MARK: - Data operations

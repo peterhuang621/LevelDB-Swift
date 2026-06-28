@@ -65,8 +65,8 @@ public class BlockBuilder {
     }
 
     public func Finish() -> Slice {
-        for i in 0 ..< restarts_.count {
-            PutFixed32(buffer_, restarts_[i])
+        for item in restarts_ {
+            PutFixed32(buffer_, item)
         }
         PutFixed32(buffer_, UInt32(restarts_.count))
         finished_ = true

@@ -7,22 +7,24 @@
 
 import Foundation
 
-private let kNumLevels = 7
-private let kL0_CompactionTrigger = 4
-private let kL0_SlowdownWritesTrigger = 8
-private let kL0_StopWritesTrigger = 12
-private let kMaxMemCompactLevel = 2
-private let kReadBytesPeriod = 1048576
+public enum config {
+    public static let kNumLevels = 7
+    public static let kL0_CompactionTrigger = 4
+    public static let kL0_SlowdownWritesTrigger = 8
+    public static let kL0_StopWritesTrigger = 12
+    public static let kMaxMemCompactLevel = 2
+    public static let kReadBytesPeriod = 1048576
+}
 
 public enum ValueType: UInt8, Sendable {
     case kTypeDeletion = 0x0
     case kTypeValue = 0x1
 }
 
-private let kValueTypeForSeek = ValueType.kTypeValue
+public let kValueTypeForSeek = ValueType.kTypeValue
 
 public typealias SequenceNumber = UInt64
-private let kMaxSequenceNumber = ((0x1 << 56) - 1)
+public let kMaxSequenceNumber = ((0x1 << 56) - 1)
 
 public struct ParsedInternalKey {
     var user_key: Slice
@@ -69,7 +71,7 @@ public func ExtractUserKey(bytes: BytesStorage) -> Slice {
 public class InternalKeyComparator: Comparator {
     private let user_comparator_: Comparator?
 
-    public init(_ c: inout Comparator?) {
+    public init(_ c: Comparator?) {
         user_comparator_ = c
     }
 

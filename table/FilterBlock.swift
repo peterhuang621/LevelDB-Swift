@@ -72,8 +72,8 @@ public class FilterBlockBuilder {
         }
 
         let array_offset: UInt32 = UInt32(result_.count)
-        for i in 0 ..< filter_offsets_.count {
-            PutFixed32(result_, filter_offsets_[i])
+        for item in filter_offsets_ {
+            PutFixed32(result_, item)
         }
 
         PutFixed32(result_, array_offset)
