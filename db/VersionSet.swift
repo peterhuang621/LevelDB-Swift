@@ -123,7 +123,7 @@ public class Version {
         override public func status() -> Status { return Status.OK() }
     }
 
-    private var vset_: VersionSet
+    public var vset_: VersionSet
     private var next_: Version!
     private var prev_: Version!
     private var refs_: Int
@@ -145,10 +145,11 @@ public class Version {
     }
 
     private func NewConcatenatingIterator(_ options: ReadOptions, _ level: Int) -> Iterator {
+        let cache: TableCache = vset_.table_cache_
         return NewTwoLevelIterator(
             LevelFileNumIterator(vset_.icmp_, files_[level]),
-            GetFileIterator,
-            vset_.table_cache_,
+            { opts, fileValue in
+                GetFileIterator(opts, cache, fileValue) },
             options)
     }
 
@@ -168,15 +169,83 @@ public class Version {
     }
 }
 
-fileprivate class VersionSet {
+public class VersionSet {
+    public let options_: Options
     public let table_cache_: TableCache
     public let icmp_: InternalKeyComparator
 
-    init(_ table_cache: TableCache, _ cmp: InternalKeyComparator) {
+    init(_ options: Options, _ table_cache: TableCache, _ cmp: InternalKeyComparator) {
         table_cache_ = table_cache
         icmp_ = cmp
+        options_ = options
     }
 }
 
+fileprivate func TargetFileSize(_ options: Options) -> Int {
+    return options.max_file_size
+}
+
+fileprivate func MaxGrandParentOverlapBytes(_ options: Options) -> Int64 {
+    return Int64(TargetFileSize(options) * 10)
+}
+
+fileprivate func MaxFileSizeForLevel(_ options: Options, _ level: Int) -> UInt64 {
+    return UInt64(TargetFileSize(options))
+}
+
+fileprivate func TotalFileSize(_ files: Array<FileMetaData>) -> Int64 {
+    var sum: Int64 = 0
+    for item in files {
+        sum += Int64(item.file_size)
+    }
+    return sum
+}
+
 fileprivate class Compaction {
+    private var level_: Int
+    private var max_output_file_size_: UInt64
+    private var input_version_: Version?
+    private var edit_: VersionEdit = VersionEdit()
+    private let inputs_: [2 of Array<FileMetaData>] = [[], []]
+    private var grandparents_: Array<FileMetaData> = []
+    private var grandparent_index_: Int = 0
+    private var seen_key_: Bool = false
+    private var overlapped_bytes_: Int64 = 0
+    private var level_ptrs_: [7 of Int] = [0, 0, 0, 0, 0, 0, 0]
+
+    init(_ options: Options, _ level: Int) {
+        level_ = level
+        max_output_file_size_ = MaxFileSizeForLevel(options, level)
+    }
+
+    public func level() -> Int { return level_ }
+
+    public func edit() -> VersionEdit { return edit_ }
+
+    public func num_input_files(_ which: Int) -> Int { return inputs_[which].count }
+
+    public func input(_ which: Int, _ i: Int) -> FileMetaData? { return inputs_[which][i] }
+
+    public func MaxOutputFileSize() -> UInt64 { return max_output_file_size_ }
+
+    public func IsTrivialMove() -> Bool {
+        let vset: VersionSet = input_version_!.vset_
+        return num_input_files(0) == 1 && num_input_files(1) == 0 && (TotalFileSize(grandparents_) <= MaxGrandParentOverlapBytes(vset.options_))
+    }
+//
+//    // Add all inputs to this compaction as delete operations to *edit.
+//    void AddInputDeletions(VersionEdit* edit)
+//
+//    // Returns true if the information we have available guarantees that
+//    // the compaction is producing data in "level+1" for which no data exists
+//    // in levels greater than "level+1".
+//    bool IsBaseLevelForKey(const Slice& user_key)
+//
+//    // Returns true iff we should stop building the current output
+//    // before processing "internal_key".
+//    bool ShouldStopBefore(const Slice& internal_key)
+//
+//    // Release the input version for the compaction, once the compaction
+//    // is successful.
+//    void ReleaseInputs()
 }
