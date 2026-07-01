@@ -29,4 +29,16 @@ public class TableCache {
 //        }
         return result
     }
+
+    public func Get(_ options: ReadOptions, _ file_number: UInt64, _ file_size: UInt64, _ k: Slice, _ handle_result: (Slice, Slice) -> Void) -> Status {
+        var handle: Cache.Handle?
+        let s: Status = Status()
+//      = FindTable(file_number, file_size, &handle)
+//        if s.ok() {
+//            var t: Table = cache_.Value(handle).table
+//            s = t -> InternalGet(options, k, arg, handle_result)
+//            cache_ -> Release(handle)
+//        }
+        return s
+    }
 }
